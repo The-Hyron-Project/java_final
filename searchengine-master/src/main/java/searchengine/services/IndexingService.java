@@ -22,7 +22,6 @@ import searchengine.model.Status;
 import searchengine.repositories.PagesRepository;
 import searchengine.repositories.SitesRepository;
 
-//тест7
 @AllArgsConstructor
 @Service
 public class IndexingService extends RecursiveAction {
