@@ -1,0 +1,29 @@
+server:
+  port: 8080
+
+spring:
+  datasource:
+#    driverClassName: com.mysql.cj.jdbc.Driver
+    username: root
+    password: rootroot
+    url: jdbc:mysql://localhost:3306/search_engine?useSSL=false&requireSSL=false&allowPublicKeyRetrieval=true
+  jpa:
+    database-platform: org.hibernate.dialect.MySQL8Dialect
+    hibernate:
+      ddl-auto: update
+    show-sql: true
+
+indexing-settings:
+  sites:
+    - url: http://localhost
+      name: тест
+#    - url: https://nopaper.ru
+#      name: cандаль
+#    - url: http://localhost
+#      name: тест3
+    - url: https://www.lenta.ru
+      name: Лента.ру
+#    - url: https://www.skillbox.ru
+#      name: Skillbox
+#    - url: https://www.playback.ru
+#      name: PlayBack.Ru

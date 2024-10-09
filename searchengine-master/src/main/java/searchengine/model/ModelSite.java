@@ -1,6 +1,6 @@
 package searchengine.model;
 
-import java.util.Date;
+import java.time.LocalDateTime;
 import javax.persistence.Column;
 import javax.persistence.Entity;
 import javax.persistence.EnumType;
@@ -8,16 +8,15 @@ import javax.persistence.Enumerated;
 import javax.persistence.GeneratedValue;
 import javax.persistence.GenerationType;
 import javax.persistence.Id;
-import lombok.AllArgsConstructor;
+import javax.persistence.Table;
 import lombok.Getter;
-import lombok.NoArgsConstructor;
-import lombok.RequiredArgsConstructor;
 import lombok.Setter;
 
 @Getter
 @Setter
 @Entity
-public class Site {
+@Table(name = "site")
+public class ModelSite {
   @Id
   @GeneratedValue(strategy = GenerationType.IDENTITY)
   int id;
@@ -25,7 +24,7 @@ public class Site {
   @Column(nullable = false)
   Status status;
   @Column(name="status_time")
-  Date statusTime;
+  LocalDateTime statusTime;
   @Column(name="last_error", columnDefinition = "TEXT")
   String lastError;
   @Column(columnDefinition = "VARCHAR (255)", nullable = false)
