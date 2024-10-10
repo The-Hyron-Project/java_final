@@ -15,6 +15,7 @@ import org.jsoup.nodes.Element;
 import org.jsoup.select.Elements;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+import searchengine.config.ConnectionProperties;
 import searchengine.config.SitesList;
 import searchengine.model.ModelPage;
 import searchengine.model.ModelSite;
@@ -32,6 +33,12 @@ public class IndexingService extends RecursiveAction {
   public SitesRepository sitesRepository;
   @Autowired
   public SitesList initialConSites;
+  @Autowired
+  public ConnectionProperties connectionProperties;
+
+  public String userAgent;
+  public String referrer;
+  public String timeout;
 
   int level;
   static int numberOfLines = 50;
@@ -64,6 +71,9 @@ public class IndexingService extends RecursiveAction {
     this.initialConSites=null;
     this.isFirstRun= Boolean.valueOf(arguments.get(5));
     this.level = Integer.parseInt(arguments.get(6));
+    this.userAgent = arguments.get(7);
+    this.referrer = arguments.get(8);
+    this.timeout = arguments.get(9);
     this.pagesRepository = pagesRepository;
     this.sitesRepository = sitesRepository;
   }
@@ -106,6 +116,9 @@ public class IndexingService extends RecursiveAction {
         arguments.add("");
         arguments.add(String.valueOf(true));
         arguments.add(String.valueOf(setLevel(url)));
+        arguments.add(connectionProperties.getUserAgent());
+        arguments.add(connectionProperties.getReferrer());
+        arguments.add(connectionProperties.getTimeout());
 
         IndexingService task = IndexingService.builder()
             .arguments(arguments)
@@ -163,7 +176,11 @@ public class IndexingService extends RecursiveAction {
       throw new RuntimeException(e);
     }
     try {
-      response = Jsoup.connect(url).timeout(10 * 2000).execute();
+      response = Jsoup.connect(url)
+        .userAgent(userAgent)
+        .referrer(referrer)
+        .timeout(Integer.parseInt(timeout))
+        .execute();
     } catch (Exception e) {
       uncheckedCheckerLinks.remove(url);
     }
@@ -275,6 +292,9 @@ public class IndexingService extends RecursiveAction {
           arguments.add("");
           arguments.add(String.valueOf(false));
           arguments.add(String.valueOf(setLevel(url)));
+          arguments.add(userAgent);
+          arguments.add(referrer);
+          arguments.add(timeout);
 
           IndexingService task = IndexingService.builder()
               .arguments(arguments)

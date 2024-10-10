@@ -19,11 +19,14 @@ indexing-settings:
       name: тест
 #    - url: https://nopaper.ru
 #      name: cандаль
-#    - url: http://localhost
-#      name: тест3
-    - url: https://www.lenta.ru
-      name: Лента.ру
+#    - url: https://www.lenta.ru
+#      name: Лента.ру
 #    - url: https://www.skillbox.ru
 #      name: Skillbox
 #    - url: https://www.playback.ru
 #      name: PlayBack.Ru
+
+connection-settings:
+  userAgent: Mozilla/5.0 (Windows; U; WindowsNT 5.1; en-US; rv1.8.1.6) Gecko/20070725 Firefox/2.0.0.6
+  referrer: http://www.google.com
+  timeout: 20000
