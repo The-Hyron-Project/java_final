@@ -27,6 +27,6 @@ indexing-settings:
 #      name: PlayBack.Ru
 
 connection-settings:
-  userAgent: Mozilla/5.0 (Windows; U; WindowsNT 5.1; en-US; rv1.8.1.6) Gecko/20070725 Firefox/2.0.0.6
-  referrer: http://www.google.com
+  userAgent: Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:131.0) Gecko/20100101 Firefox/131.0
+  referrer: http://www.yandex.ru
   timeout: 20000
