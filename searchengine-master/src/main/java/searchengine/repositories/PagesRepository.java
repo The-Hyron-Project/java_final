@@ -1,5 +1,6 @@
 package searchengine.repositories;
 
+import java.util.List;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.CrudRepository;
@@ -19,4 +20,8 @@ public interface PagesRepository extends CrudRepository<ModelPage, Integer> {
   public int countBySiteId(int id);
   @Query(value = "select * FROM page where path = ?1 AND site_id = ?2", nativeQuery = true)
   public ModelPage findByUrlAndId(String url, int id);
+  @Query(value = "SELECT id FROM page where site_id = ?1", nativeQuery = true)
+  public List<Integer> findAllPagesIdsBySiteId(int id);
+
+
 }

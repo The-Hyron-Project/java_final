@@ -55,9 +55,9 @@ public class ApiController {
         }
     }
 
-    @PostMapping("/indexPage/")
-    public ResponseEntity indexPage(@RequestParam("address") String pageAddress)  {
-        if (!pageIndexingService.startPageIndexing(pageAddress)) {
+    @PostMapping("/indexPage")
+    public ResponseEntity indexPage(@RequestParam String url)  {
+        if (!pageIndexingService.startPageIndexing(url)) {
             return ResponseEntity.status(HttpStatus.OK).body("\'result\': false\n"
                 + "\'error\': \"Данная страница находится за пределами сайтов, \n"
                 + "указанных в конфигурационном файле\n\"");

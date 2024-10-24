@@ -20,6 +20,8 @@ import searchengine.config.SitesList;
 import searchengine.model.ModelPage;
 import searchengine.model.ModelSite;
 import searchengine.model.Status;
+import searchengine.repositories.IndexRepository;
+import searchengine.repositories.LemmaRepository;
 import searchengine.repositories.PagesRepository;
 import searchengine.repositories.SitesRepository;
 
@@ -32,9 +34,15 @@ public class IndexingService extends RecursiveAction {
   @Autowired
   public SitesRepository sitesRepository;
   @Autowired
+  public IndexRepository indexRepository;
+  @Autowired
+  public LemmaRepository lemmaRepository;
+  @Autowired
   public SitesList initialConSites;
   @Autowired
   public ConnectionProperties connectionProperties;
+  @Autowired
+  PageIndexingService pageIndexingService;
 
   public String userAgent;
   public String referrer;
@@ -63,7 +71,9 @@ public class IndexingService extends RecursiveAction {
   public IndexingService() {}
 
   @Builder
-  public IndexingService(List<String> arguments, SitesRepository sitesRepository, PagesRepository pagesRepository) {
+  public IndexingService(List<String> arguments, SitesRepository sitesRepository,
+      PagesRepository pagesRepository, PageIndexingService pageIndexingService,
+      IndexRepository indexRepository, LemmaRepository lemmaRepository) {
     this.url = arguments.get(0);
     this.baseUrl = arguments.get(1);
     this.siteId = Integer.parseInt(arguments.get(2));
@@ -76,6 +86,9 @@ public class IndexingService extends RecursiveAction {
     this.timeout = arguments.get(9);
     this.pagesRepository = pagesRepository;
     this.sitesRepository = sitesRepository;
+    this.pageIndexingService = pageIndexingService;
+    this.indexRepository = indexRepository;
+    this.lemmaRepository=lemmaRepository;
   }
 
   public Boolean getIndexResult() {
@@ -103,6 +116,11 @@ public class IndexingService extends RecursiveAction {
         siteNames.add(initialConSites.getSites().get(i).getName());
         try{
           int siteIdToDelete = sitesRepository.findByName(initialConSites.getSites().get(i).getName()).getId();
+          List<Integer> pagesIds = pagesRepository.findAllPagesIdsBySiteId(siteIdToDelete);
+          for(int id : pagesIds){
+            indexRepository.deleteIndexByPageId(id);
+          }
+          lemmaRepository.deleteLemmaBySiteId(siteIdToDelete);
           pagesRepository.deleteBySiteId(siteIdToDelete);
           sitesRepository.deleteById(siteIdToDelete);
         }catch (Exception e) {
@@ -124,6 +142,7 @@ public class IndexingService extends RecursiveAction {
             .arguments(arguments)
             .pagesRepository(pagesRepository)
             .sitesRepository(sitesRepository)
+            .pageIndexingService(pageIndexingService)
             .build();
         subFirstTasks.add(task);
         forkJoinPool.execute(task);
@@ -238,6 +257,11 @@ public class IndexingService extends RecursiveAction {
         modelPage.setPath(url.replace(baseUrl, ""));
       }
       pagesRepository.save(modelPage);
+      if(isFirstRun){
+        pageIndexingService.startPageIndexing(url+"/");
+      }else {
+        pageIndexingService.startPageIndexing(url);
+      }
     }
   }
 
@@ -300,6 +324,7 @@ public class IndexingService extends RecursiveAction {
               .arguments(arguments)
               .pagesRepository(pagesRepository)
               .sitesRepository(sitesRepository)
+              .pageIndexingService(pageIndexingService)
               .build();
           subTasks.add(task);
           forkJoinPool.execute(task);

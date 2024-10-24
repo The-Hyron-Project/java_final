@@ -1,11 +1,16 @@
 package searchengine.services;
 
+import java.time.LocalDateTime;
 import java.util.Arrays;
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.List;
+import java.util.Map.Entry;
+import java.util.concurrent.ConcurrentHashMap;
 import lombok.RequiredArgsConstructor;
 import org.apache.lucene.morphology.LuceneMorphology;
 import org.apache.lucene.morphology.russian.RussianLuceneMorphology;
+import org.jsoup.Connection;
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -15,6 +20,8 @@ import searchengine.config.SitesList;
 import searchengine.model.Index;
 import searchengine.model.Lemma;
 import searchengine.model.ModelPage;
+import searchengine.model.ModelSite;
+import searchengine.model.Status;
 import searchengine.repositories.IndexRepository;
 import searchengine.repositories.LemmaRepository;
 import searchengine.repositories.PagesRepository;
@@ -38,30 +45,38 @@ public class PageIndexingService {
   ModelPage modelPage;
 
 //  ModelPage modelPage;
-HashMap<String, Integer> finalList;
   HashMap<String, Integer> wordsCounter;
   List<String> serviceWords = Arrays.asList(" СОЮЗ "," ЧАСТ", " ПРЕДЛ") ;
-//  Connection.Response response = null;
-//  Document doc2 = null;
+  Connection.Response response = null;
+  Document doc2 = null;
   Document doc3 = null;
 
-//  public String userAgent;
-//  public String referrer;
-//  public String timeout;
+  public String userAgent;
+  public String referrer;
+  public String timeout;
 
   public int siteId;
-//
-//      try {
-//    response = Jsoup.connect("http://localhost")
-//        .execute();
-//  } catch (Exception e) {
-//  }
-//
-//  doc2 = response.parse();
-//    System.out.println(doc2.text());
 
-//      HashMap<String, Integer> finalList =  sentenceToWords(sentence);
-//    finalList.forEach((k,v) -> System.out.println(k+" "+v));
+  String siteName;
+
+  HashMap<String, Integer> finalList;
+
+
+  public Connection.Response Connect (String url){
+    userAgent = connectionProperties.getUserAgent();
+    referrer = connectionProperties.getReferrer();
+    timeout = connectionProperties.getTimeout();
+
+    try {
+      response = Jsoup.connect(url)
+          .userAgent(userAgent)
+          .referrer(referrer)
+          .timeout(Integer.parseInt(timeout))
+          .execute();
+    } catch (Exception e) {
+    }
+    return response;
+  }
 
   public Boolean isPagePresentInRepository(String pageAddress){
     ModelPage modelPage = pagesRepository.findByUrlAndId(pageAddress, siteId);
@@ -74,9 +89,13 @@ HashMap<String, Integer> finalList;
 
   public Boolean isSitePresentInConfiguration(String siteAddress) {
     Boolean isPresent = false;
+    String siteExtractedAddress = gettingExactSiteAddress(siteAddress);
     for (int i = 0; i < initialConSites.getSites().size(); i++) {
-      if(siteAddress.equals(initialConSites.getSites().get(i).getUrl())){
+      if(siteExtractedAddress.equals(initialConSites.getSites().get(i).getUrl())){
         isPresent = true;
+        if(isPresent){
+          siteName = initialConSites.getSites().get(i).getName();
+        }
         break;
       }
     }
@@ -84,22 +103,22 @@ HashMap<String, Integer> finalList;
   }
 
   public Boolean isSitePresentInTheRepository(String siteAddress) {
-    siteId = sitesRepository.findIdByUrl(siteAddress);
-    if(siteId!=0){
-      return true;
-    }else{
+    try {
+      siteId = sitesRepository.findIdByUrl(siteAddress);
+        return true;
+    } catch (Exception e) {
       return false;
     }
   }
 
-  public String gettingSiteAddress(String pageAddress){
+  public String gettingExactSiteAddress(String pageAddress){
     String[] steps = pageAddress.split("/");
     String siteAddress = steps[0]+steps[1]+"//"+steps[2];
     return siteAddress;
   }
 
   public String gettingExactPageAddress(String thisPageAddress){
-    String pageAddress = thisPageAddress.replace(gettingSiteAddress(thisPageAddress),"");
+    String pageAddress = thisPageAddress.replace(gettingExactSiteAddress(thisPageAddress),"");
     return pageAddress;
   }
 
@@ -130,16 +149,85 @@ HashMap<String, Integer> finalList;
     return wordsCounter;
   }
 
-  public Boolean startPageIndexing(String pageAddress){
-    if(isSitePresentInTheRepository(gettingSiteAddress(pageAddress))){
-     modelPage = pagesRepository.findByUrlAndId(gettingExactPageAddress(pageAddress),siteId);
-      doc3 = Jsoup.parse(modelPage.getContent());
-      finalList = sentenceToWords(doc3.body().text());
-    }
-    indexRepository.deleteIndexByPageId(modelPage.getId());
-    finalList.forEach((key, value) -> lemmaRepository.deleteLemmaByLemmaAndSiteId(key,siteId));
-    finalList.forEach(this::savingLemma);
+  public synchronized Boolean startPageIndexing(String pageAddress){
+    if(!isSitePresentInConfiguration(pageAddress)){
+      return false;
+    }else{
+      if(!isSitePresentInTheRepository(gettingExactSiteAddress(pageAddress))) {
+        try {
+          response = Connect(pageAddress);
+        } catch (Exception e) {
+        }
+        ModelSite modelSite = new ModelSite();
+        modelSite.setUrl(gettingExactSiteAddress(pageAddress));
+        modelSite.setName(siteName);
+        modelSite.setStatusTime(LocalDateTime.now());
+        if(response!=null && response.statusCode()==200) {
+          modelSite.setLastError("");
+          modelSite.setStatus(Status.INDEXING);
+        } else if(response==null){
+          modelSite.setStatus(Status.FAILED);
+          modelSite.setLastError("Ресурс недоступен");
+        } else{
+          try {
+            modelSite.setLastError(response.statusMessage());
+            modelSite.setStatus(Status.FAILED);
+          }catch(Exception e) {
+          }
+        }
+        sitesRepository.save(modelSite);
+        siteId = sitesRepository.findByName(siteName).getId();
+      }
+      if(isPagePresentInRepository(gettingExactPageAddress(pageAddress))){
+        modelPage = pagesRepository.findByUrlAndId(gettingExactPageAddress(pageAddress),siteId);
+        doc3 = Jsoup.parse(modelPage.getContent());
+        finalList = sentenceToWords(doc3.body().text());
+        List<Index> index = indexRepository.findIndexByPageId(modelPage.getId());
+        if(!index.isEmpty()){
+          indexRepository.deleteIndexByPageId(modelPage.getId());
+          finalList.forEach((key, value) -> {
+            Lemma lemma = lemmaRepository.findLemmaByLemmaAndSiteId(key,siteId);
+            if(lemma!=null){
+              if(lemma.getFrequency()>1){
+                lemma.setFrequency(lemma.getFrequency()-1);
+                lemmaRepository.save(lemma);
+              }else{
+                lemmaRepository.deleteLemmaByLemmaAndSiteId(key,siteId);
+              }
+            }
+          });
+        }
+        if(!finalList.isEmpty()) {
+          finalList.forEach(this::savingLemma);
+        }
+      }else{
+        try {
+          response = Connect(pageAddress);
+          doc2 = response.parse();
+        } catch (Exception e) {
+        }
+        modelPage = new ModelPage();
+          if(response!=null && response.statusCode()==200) {
+            modelPage.setCode(response.statusCode());
+            modelPage.setContent(String.valueOf(doc2));
+          }else if(response==null){
+            modelPage.setCode(000);
+            modelPage.setContent("");
+          }else{
+            modelPage.setCode(response.statusCode());
+            modelPage.setContent(String.valueOf(doc2));
+          }
+            modelPage.setPath(gettingExactPageAddress(pageAddress));
+            modelPage.setModelSite(sitesRepository.findById(siteId).get());
+            pagesRepository.save(modelPage);
+            modelPage = pagesRepository.findByUrlAndId(gettingExactPageAddress(pageAddress),siteId);
+            finalList = sentenceToWords(doc2.body().text());
+        if(!finalList.isEmpty()){
+          finalList.forEach(this::savingLemma);
+        }
+      }
     return true;
+    }
   }
 
   public void savingLemma(String word, int rank){
