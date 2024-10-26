@@ -1,12 +1,10 @@
 package searchengine.services;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
-import java.util.Iterator;
 import java.util.List;
-import java.util.Map.Entry;
-import java.util.concurrent.ConcurrentHashMap;
 import lombok.RequiredArgsConstructor;
 import org.apache.lucene.morphology.LuceneMorphology;
 import org.apache.lucene.morphology.russian.RussianLuceneMorphology;
@@ -44,12 +42,10 @@ public class PageIndexingService {
   public IndexRepository indexRepository;
   ModelPage modelPage;
 
-//  ModelPage modelPage;
   HashMap<String, Integer> wordsCounter;
   List<String> serviceWords = Arrays.asList(" СОЮЗ "," ЧАСТ", " ПРЕДЛ") ;
   Connection.Response response = null;
   Document doc2 = null;
-  Document doc3 = null;
 
   public String userAgent;
   public String referrer;
@@ -60,7 +56,6 @@ public class PageIndexingService {
   String siteName;
 
   HashMap<String, Integer> finalList;
-
 
   public Connection.Response Connect (String url){
     userAgent = connectionProperties.getUserAgent();
@@ -149,82 +144,116 @@ public class PageIndexingService {
     return wordsCounter;
   }
 
+  public void saveSite(Connection.Response response, String pageAddress){
+    ModelSite modelSite = new ModelSite();
+    modelSite.setUrl(gettingExactSiteAddress(pageAddress));
+    modelSite.setName(siteName);
+    modelSite.setStatusTime(LocalDateTime.now());
+    if(response!=null && response.statusCode()==200) {
+      modelSite.setLastError("");
+      modelSite.setStatus(Status.INDEXING);
+    } else if(response==null){
+      modelSite.setStatus(Status.FAILED);
+      modelSite.setLastError("Ресурс недоступен");
+    } else{
+      try {
+        modelSite.setLastError(response.statusMessage());
+        modelSite.setStatus(Status.FAILED);
+      }catch(Exception e) {
+      }
+    }
+    sitesRepository.save(modelSite);
+    siteId = sitesRepository.findByName(siteName).getId();
+  }
+
+  public void deleteOldEntries(List<Index> index, ModelPage modelPage){
+    if(!index.isEmpty()){
+      indexRepository.deleteIndexByPageId(modelPage.getId());
+      pagesRepository.delete(modelPage);
+      finalList.forEach((key, value) -> {
+        Lemma lemma = lemmaRepository.findLemmaByLemmaAndSiteId(key,siteId);
+        if(lemma!=null){
+          if(lemma.getFrequency()>1){
+            lemma.setFrequency(lemma.getFrequency()-1);
+            lemmaRepository.save(lemma);
+          }else{
+            lemmaRepository.deleteLemmaByLemmaAndSiteId(key,siteId);
+          }
+        }
+      });
+    }
+  }
+
+  public void savePage(Connection.Response response, String pageAddress){
+    modelPage = new ModelPage();
+    if(response!=null && response.statusCode()==200) {
+      modelPage.setCode(response.statusCode());
+      modelPage.setContent(String.valueOf(doc2));
+    }else if(response==null){
+      modelPage.setCode(000);
+      modelPage.setContent("");
+    }else{
+      modelPage.setCode(response.statusCode());
+      modelPage.setContent(String.valueOf(doc2));
+    }
+    modelPage.setPath(gettingExactPageAddress(pageAddress));
+    modelPage.setModelSite(sitesRepository.findById(siteId).get());
+    pagesRepository.save(modelPage);
+  }
+
+  public Boolean areLemmasPresent(String pageAddress){
+    modelPage = pagesRepository.findByUrlAndId(gettingExactPageAddress(pageAddress),siteId);
+    if(modelPage==null){
+      return false;
+    }
+    List<Index> index = indexRepository.findIndexByPageId(modelPage.getId());
+    if(!index.isEmpty()){
+      return true;
+    }
+    return false;
+  }
+  
+  public List<Index> findLemmas(String pageAddress){
+    modelPage = pagesRepository.findByUrlAndId(gettingExactPageAddress(pageAddress),siteId);
+    List<Index> index = indexRepository.findIndexByPageId(modelPage.getId());
+    if(!index.isEmpty()){
+      return index;
+    }
+    return new ArrayList<>();
+  }
+  
   public synchronized Boolean startPageIndexing(String pageAddress){
     if(!isSitePresentInConfiguration(pageAddress)){
       return false;
     }else{
-      if(!isSitePresentInTheRepository(gettingExactSiteAddress(pageAddress))) {
+      if(!isSitePresentInTheRepository(gettingExactSiteAddress(pageAddress)) || !isPagePresentInRepository(gettingExactPageAddress(pageAddress)) || (isPagePresentInRepository(gettingExactPageAddress(pageAddress)) && areLemmasPresent(pageAddress))){
         try {
           response = Connect(pageAddress);
-        } catch (Exception e) {
-        }
-        ModelSite modelSite = new ModelSite();
-        modelSite.setUrl(gettingExactSiteAddress(pageAddress));
-        modelSite.setName(siteName);
-        modelSite.setStatusTime(LocalDateTime.now());
-        if(response!=null && response.statusCode()==200) {
-          modelSite.setLastError("");
-          modelSite.setStatus(Status.INDEXING);
-        } else if(response==null){
-          modelSite.setStatus(Status.FAILED);
-          modelSite.setLastError("Ресурс недоступен");
-        } else{
           try {
-            modelSite.setLastError(response.statusMessage());
-            modelSite.setStatus(Status.FAILED);
-          }catch(Exception e) {
+            doc2 = response.parse();
+          } catch (Exception e) {
           }
-        }
-        sitesRepository.save(modelSite);
-        siteId = sitesRepository.findByName(siteName).getId();
-      }
-      if(isPagePresentInRepository(gettingExactPageAddress(pageAddress))){
-        modelPage = pagesRepository.findByUrlAndId(gettingExactPageAddress(pageAddress),siteId);
-        doc3 = Jsoup.parse(modelPage.getContent());
-        finalList = sentenceToWords(doc3.body().text());
-        List<Index> index = indexRepository.findIndexByPageId(modelPage.getId());
-        if(!index.isEmpty()){
-          indexRepository.deleteIndexByPageId(modelPage.getId());
-          finalList.forEach((key, value) -> {
-            Lemma lemma = lemmaRepository.findLemmaByLemmaAndSiteId(key,siteId);
-            if(lemma!=null){
-              if(lemma.getFrequency()>1){
-                lemma.setFrequency(lemma.getFrequency()-1);
-                lemmaRepository.save(lemma);
-              }else{
-                lemmaRepository.deleteLemmaByLemmaAndSiteId(key,siteId);
-              }
-            }
-          });
-        }
-        if(!finalList.isEmpty()) {
-          finalList.forEach(this::savingLemma);
+        } catch (Exception e) {
         }
       }else{
-        try {
-          response = Connect(pageAddress);
-          doc2 = response.parse();
-        } catch (Exception e) {
+        modelPage = pagesRepository.findByUrlAndId(gettingExactPageAddress(pageAddress),siteId);
+        doc2 = Jsoup.parse(modelPage.getContent());
+      }
+      finalList = sentenceToWords(doc2.body().text());
+      if(areLemmasPresent(pageAddress)){
+        List<Index> index = findLemmas(pageAddress);
+        if(!index.isEmpty()){
+          deleteOldEntries(index, modelPage);
         }
-        modelPage = new ModelPage();
-          if(response!=null && response.statusCode()==200) {
-            modelPage.setCode(response.statusCode());
-            modelPage.setContent(String.valueOf(doc2));
-          }else if(response==null){
-            modelPage.setCode(000);
-            modelPage.setContent("");
-          }else{
-            modelPage.setCode(response.statusCode());
-            modelPage.setContent(String.valueOf(doc2));
-          }
-            modelPage.setPath(gettingExactPageAddress(pageAddress));
-            modelPage.setModelSite(sitesRepository.findById(siteId).get());
-            pagesRepository.save(modelPage);
-            modelPage = pagesRepository.findByUrlAndId(gettingExactPageAddress(pageAddress),siteId);
-            finalList = sentenceToWords(doc2.body().text());
-        if(!finalList.isEmpty()){
-          finalList.forEach(this::savingLemma);
-        }
+      }
+      if(!isSitePresentInTheRepository(gettingExactSiteAddress(pageAddress))){
+        saveSite(response, pageAddress);
+      }
+      if(!isPagePresentInRepository(gettingExactPageAddress(pageAddress))){
+        savePage(response, pageAddress);
+      }
+      if(!finalList.isEmpty()) {
+        finalList.forEach(this::savingLemma);
       }
     return true;
     }

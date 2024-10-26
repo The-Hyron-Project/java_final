@@ -14,6 +14,7 @@ import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Element;
 import org.jsoup.select.Elements;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.repository.CrudRepository;
 import org.springframework.stereotype.Service;
 import searchengine.config.ConnectionProperties;
 import searchengine.config.SitesList;
@@ -67,28 +68,27 @@ public class IndexingService extends RecursiveAction {
   static List<String> siteNames = new ArrayList<>();
   public static ForkJoinPool forkJoinPool = new ForkJoinPool(Runtime.getRuntime().availableProcessors());
   public List<String> arguments;
+  public List<CrudRepository> repArguments;
 
   public IndexingService() {}
 
   @Builder
-  public IndexingService(List<String> arguments, SitesRepository sitesRepository,
-      PagesRepository pagesRepository, PageIndexingService pageIndexingService,
-      IndexRepository indexRepository, LemmaRepository lemmaRepository) {
+  public IndexingService(List<String> arguments, List<CrudRepository> repArguments, PageIndexingService pageIndexingService) {
     this.url = arguments.get(0);
     this.baseUrl = arguments.get(1);
     this.siteId = Integer.parseInt(arguments.get(2));
     this.name=arguments.get(3);
-    this.initialConSites=null;
     this.isFirstRun= Boolean.valueOf(arguments.get(5));
     this.level = Integer.parseInt(arguments.get(6));
     this.userAgent = arguments.get(7);
     this.referrer = arguments.get(8);
     this.timeout = arguments.get(9);
-    this.pagesRepository = pagesRepository;
-    this.sitesRepository = sitesRepository;
+    this.sitesRepository = (SitesRepository) repArguments.get(0);
+    this.pagesRepository = (PagesRepository) repArguments.get(1);
+    this.indexRepository = (IndexRepository) repArguments.get(2);
+    this.lemmaRepository = (LemmaRepository) repArguments.get(3);;
     this.pageIndexingService = pageIndexingService;
-    this.indexRepository = indexRepository;
-    this.lemmaRepository=lemmaRepository;
+    this.initialConSites=null;
   }
 
   public Boolean getIndexResult() {
@@ -138,10 +138,15 @@ public class IndexingService extends RecursiveAction {
         arguments.add(connectionProperties.getReferrer());
         arguments.add(connectionProperties.getTimeout());
 
+        repArguments = new ArrayList<>();
+        repArguments.add(sitesRepository);
+        repArguments.add(pagesRepository);
+        repArguments.add(indexRepository);
+        repArguments.add(lemmaRepository);
+
         IndexingService task = IndexingService.builder()
             .arguments(arguments)
-            .pagesRepository(pagesRepository)
-            .sitesRepository(sitesRepository)
+            .repArguments(repArguments)
             .pageIndexingService(pageIndexingService)
             .build();
         subFirstTasks.add(task);
@@ -257,11 +262,14 @@ public class IndexingService extends RecursiveAction {
         modelPage.setPath(url.replace(baseUrl, ""));
       }
       pagesRepository.save(modelPage);
-      if(isFirstRun){
-        pageIndexingService.startPageIndexing(url+"/");
-      }else {
-        pageIndexingService.startPageIndexing(url);
+      if(!String.valueOf(response.statusCode()).matches("[4|5].*")){
+        if(isFirstRun){
+          pageIndexingService.startPageIndexing(url+"/");
+        }else {
+          pageIndexingService.startPageIndexing(url);
+        }
       }
+
     }
   }
 
@@ -320,10 +328,15 @@ public class IndexingService extends RecursiveAction {
           arguments.add(referrer);
           arguments.add(timeout);
 
+          repArguments = new ArrayList<>();
+          repArguments.add(sitesRepository);
+          repArguments.add(pagesRepository);
+          repArguments.add(indexRepository);
+          repArguments.add(lemmaRepository);
+
           IndexingService task = IndexingService.builder()
               .arguments(arguments)
-              .pagesRepository(pagesRepository)
-              .sitesRepository(sitesRepository)
+              .repArguments(repArguments)
               .pageIndexingService(pageIndexingService)
               .build();
           subTasks.add(task);
