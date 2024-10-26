@@ -86,7 +86,7 @@ public class IndexingService extends RecursiveAction {
     this.sitesRepository = (SitesRepository) repArguments.get(0);
     this.pagesRepository = (PagesRepository) repArguments.get(1);
     this.indexRepository = (IndexRepository) repArguments.get(2);
-    this.lemmaRepository = (LemmaRepository) repArguments.get(3);;
+    this.lemmaRepository = (LemmaRepository) repArguments.get(3);
     this.pageIndexingService = pageIndexingService;
     this.initialConSites=null;
   }
