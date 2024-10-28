@@ -18,6 +18,9 @@ import org.springframework.data.repository.CrudRepository;
 import org.springframework.stereotype.Service;
 import searchengine.config.ConnectionProperties;
 import searchengine.config.SitesList;
+import searchengine.dto.statistics.RequestResponceFailed;
+import searchengine.dto.statistics.RequestResponceSucceeded;
+import searchengine.dto.statistics.RequestResponse;
 import searchengine.model.ModelPage;
 import searchengine.model.ModelSite;
 import searchengine.model.Status;
@@ -69,6 +72,8 @@ public class IndexingService extends RecursiveAction {
   public static ForkJoinPool forkJoinPool = new ForkJoinPool(Runtime.getRuntime().availableProcessors());
   public List<String> arguments;
   public List<CrudRepository> repArguments;
+  RequestResponceFailed requestResponseFailed;
+  RequestResponceSucceeded requestResponceSucceeded;
 
   public IndexingService() {}
 
@@ -91,7 +96,7 @@ public class IndexingService extends RecursiveAction {
     this.initialConSites=null;
   }
 
-  public Boolean getIndexResult() {
+  public RequestResponse getIndexResult() {
     if(!isIndexing){
       isIndexing = true;
       startIndexing();
@@ -104,9 +109,9 @@ public class IndexingService extends RecursiveAction {
         }
       }
       isIndexing = false;
-      return isSuccessful;
+      return requestResponceSucceeded = new RequestResponceSucceeded(true);
     }else{
-      return !isSuccessful;
+      return requestResponseFailed = new RequestResponceFailed(false, "Индексация уже запущена");
     }
   }
 
@@ -352,7 +357,7 @@ public class IndexingService extends RecursiveAction {
     }
   }
 
-  public boolean stopIndexing(){
+  public RequestResponse stopIndexing(){
     if(isIndexing){
       for (IndexingService task : subTasks) {
         task.cancel(true);
@@ -372,9 +377,10 @@ public class IndexingService extends RecursiveAction {
         }
       }
       isIndexing = false;
-      return true;
+
+      return requestResponceSucceeded = new RequestResponceSucceeded(true);
     }else{
-      return false;
+      return requestResponseFailed = new RequestResponceFailed(false, "Индексация не запущена");
     }
   }
 

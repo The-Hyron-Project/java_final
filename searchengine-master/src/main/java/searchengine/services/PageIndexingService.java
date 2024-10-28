@@ -15,6 +15,9 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import searchengine.config.ConnectionProperties;
 import searchengine.config.SitesList;
+import searchengine.dto.statistics.RequestResponceFailed;
+import searchengine.dto.statistics.RequestResponceSucceeded;
+import searchengine.dto.statistics.RequestResponse;
 import searchengine.model.Index;
 import searchengine.model.Lemma;
 import searchengine.model.ModelPage;
@@ -222,9 +225,11 @@ public class PageIndexingService {
     return new ArrayList<>();
   }
   
-  public synchronized Boolean startPageIndexing(String pageAddress){
+  public synchronized RequestResponse startPageIndexing(String pageAddress){
+    RequestResponceFailed requestResponseFailed;
+    RequestResponceSucceeded requestResponceSucceeded;
     if(!isSitePresentInConfiguration(pageAddress)){
-      return false;
+      return requestResponseFailed = new RequestResponceFailed(false, "Данная страница находится за пределами сайтов, указанных в конфигурационном файле");
     }else{
       if(!isSitePresentInTheRepository(gettingExactSiteAddress(pageAddress)) || !isPagePresentInRepository(gettingExactPageAddress(pageAddress)) || (isPagePresentInRepository(gettingExactPageAddress(pageAddress)) && areLemmasPresent(pageAddress))){
         try {
@@ -255,7 +260,7 @@ public class PageIndexingService {
       if(!finalList.isEmpty()) {
         finalList.forEach(this::savingLemma);
       }
-    return true;
+      return requestResponceSucceeded = new RequestResponceSucceeded(true);
     }
   }
 
