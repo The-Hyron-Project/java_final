@@ -17,4 +17,6 @@ public interface LemmaRepository extends CrudRepository<Lemma, Integer> {
   @Transactional
   @Query(value = "DELETE FROM lemma where site_id = ?1", nativeQuery = true)
   public void deleteLemmaBySiteId(int site_id);
+  @Query(value = "select count(*) FROM lemma where site_id = ?1", nativeQuery = true)
+  public int countLemmasBySiteId(int id);
 }

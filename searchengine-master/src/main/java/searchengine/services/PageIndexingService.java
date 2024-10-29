@@ -12,6 +12,7 @@ import org.jsoup.Connection;
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.repository.CrudRepository;
 import org.springframework.stereotype.Service;
 import searchengine.config.ConnectionProperties;
 import searchengine.config.SitesList;
@@ -46,7 +47,7 @@ public class PageIndexingService {
   ModelPage modelPage;
 
   HashMap<String, Integer> wordsCounter;
-  List<String> serviceWords = Arrays.asList(" СОЮЗ "," ЧАСТ", " ПРЕДЛ") ;
+  List<String> serviceWords = Arrays.asList(" СОЮЗ "," ЧАСТ", " ПРЕДЛ", " МЕЖД") ;
   Connection.Response response = null;
   Document doc2 = null;
 
@@ -59,6 +60,17 @@ public class PageIndexingService {
   String siteName;
 
   HashMap<String, Integer> finalList;
+
+//  public PageIndexingService(){}
+
+  public PageIndexingService(List<CrudRepository> repArguments, ConnectionProperties connectionProperties, SitesList initialConSites){
+    this.sitesRepository = (SitesRepository) repArguments.get(0);
+    this.pagesRepository = (PagesRepository) repArguments.get(1);
+    this.indexRepository = (IndexRepository) repArguments.get(2);
+    this.lemmaRepository = (LemmaRepository) repArguments.get(3);
+    this.connectionProperties=connectionProperties;
+    this.initialConSites=initialConSites;
+  }
 
   public Connection.Response Connect (String url){
     userAgent = connectionProperties.getUserAgent();
@@ -122,15 +134,18 @@ public class PageIndexingService {
 
   public HashMap<String, Integer> sentenceToWords(String sentence){
     wordsCounter = new HashMap<>();
-    String[] words = sentence.split("\\.\\s+|\\,*\\s+|\\.\\s*");
+//    ArrayList<String> brokenWords = new ArrayList<>();
+    String[] words = sentence.split("\\.\\s+|\\,*\\s+|\\.\\s*|-+|'|:|\"|\\?|«|»");
     try{
       LuceneMorphology luceneMorph = new RussianLuceneMorphology();
       for (int i = 0; i < words.length; i++){
-        if(words[i].matches("\\D*")){
+        if(words[i].matches("\\D*") && !words[i].isBlank() ){
+          try{
           if
           (!luceneMorph.getMorphInfo(words[i].toLowerCase()).toString().contains(serviceWords.get(0))
               && !luceneMorph.getMorphInfo(words[i].toLowerCase()).toString().contains(serviceWords.get(1))
               && !luceneMorph.getMorphInfo(words[i].toLowerCase()).toString().contains(serviceWords.get(2))
+              && !luceneMorph.getMorphInfo(words[i].toLowerCase()).toString().contains(serviceWords.get(3))
           )
           {
             if(wordsCounter.containsKey(words[i].toLowerCase())){
@@ -139,11 +154,17 @@ public class PageIndexingService {
               wordsCounter.put(luceneMorph.getNormalForms(words[i].toLowerCase()).get(0),1);
             }
           }
+          }catch (Exception e) {
+//            System.out.println(words[i] + " не подошло");
+//            System.out.println(luceneMorph.getNormalForms(words[i].toLowerCase()));
+//            brokenWords.add(words[i]);
+          }
         }
       }
     }catch (Exception e) {
       }
     wordsCounter.size();
+//    brokenWords.size();
     return wordsCounter;
   }
 

@@ -17,5 +17,4 @@ public interface SitesRepository extends CrudRepository<ModelSite, Integer> {
   public List<ModelSite> findAllByStatus(String status);
   @Query(value = "SELECT id FROM site where url = ?1", nativeQuery = true)
   public Integer findIdByUrl(String status);
-
 }
