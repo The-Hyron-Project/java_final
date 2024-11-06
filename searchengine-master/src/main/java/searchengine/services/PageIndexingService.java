@@ -163,8 +163,6 @@ public class PageIndexingService {
       }
     }catch (Exception e) {
       }
-    wordsCounter.size();
-//    brokenWords.size();
     return wordsCounter;
   }
 
