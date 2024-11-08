@@ -280,7 +280,9 @@ public class IndexingService extends RecursiveAction {
         ModelSite modelSite = sitesRepository.findById(siteId).get();
         modelSite.setLastError(String.valueOf(doc2));
         modelSite.setStatus(Status.FAILED);
-        sitesRepository.save(modelSite);
+        if(!(response==null) && !(modelPage.getContent().isEmpty())){
+          sitesRepository.save(modelSite);
+        }
       }
       if(isFirstRun){
         modelPage.setPath("/");
