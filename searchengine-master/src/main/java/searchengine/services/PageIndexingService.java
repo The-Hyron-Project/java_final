@@ -1,13 +1,11 @@
 package searchengine.services;
 
+import java.io.IOException;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
-import org.apache.lucene.morphology.LuceneMorphology;
-import org.apache.lucene.morphology.russian.RussianLuceneMorphology;
 import org.jsoup.Connection;
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
@@ -24,6 +22,7 @@ import searchengine.model.Lemma;
 import searchengine.model.ModelPage;
 import searchengine.model.ModelSite;
 import searchengine.model.Status;
+import searchengine.processors.WordProcessor;
 import searchengine.repositories.IndexRepository;
 import searchengine.repositories.LemmaRepository;
 import searchengine.repositories.PagesRepository;
@@ -45,23 +44,15 @@ public class PageIndexingService {
   @Autowired
   public IndexRepository indexRepository;
   ModelPage modelPage;
-
   HashMap<String, Integer> wordsCounter;
-  List<String> serviceWords = Arrays.asList(" СОЮЗ "," ЧАСТ", " ПРЕДЛ", " МЕЖД") ;
   Connection.Response response = null;
   Document doc2 = null;
-
   public String userAgent;
   public String referrer;
   public String timeout;
-
   public int siteId;
-
   String siteName;
-
   HashMap<String, Integer> finalList;
-
-//  public PageIndexingService(){}
 
   public PageIndexingService(List<CrudRepository> repArguments, ConnectionProperties connectionProperties, SitesList initialConSites){
     this.sitesRepository = (SitesRepository) repArguments.get(0);
@@ -83,7 +74,8 @@ public class PageIndexingService {
           .referrer(referrer)
           .timeout(Integer.parseInt(timeout))
           .execute();
-    } catch (Exception e) {
+    } catch (IOException e) {
+      throw new RuntimeException(e);
     }
     return response;
   }
@@ -134,35 +126,19 @@ public class PageIndexingService {
 
   public HashMap<String, Integer> sentenceToWords(String sentence){
     wordsCounter = new HashMap<>();
-//    ArrayList<String> brokenWords = new ArrayList<>();
     String[] words = sentence.split("\\.\\s+|\\,*\\s+|\\.\\s*|-+|'|:|\"|\\?|«|»");
-    try{
-      LuceneMorphology luceneMorph = new RussianLuceneMorphology();
-      for (int i = 0; i < words.length; i++){
-        if(words[i].matches("\\D*") && !words[i].isBlank() ){
-          try{
-          if
-          (!luceneMorph.getMorphInfo(words[i].toLowerCase()).toString().contains(serviceWords.get(0))
-              && !luceneMorph.getMorphInfo(words[i].toLowerCase()).toString().contains(serviceWords.get(1))
-              && !luceneMorph.getMorphInfo(words[i].toLowerCase()).toString().contains(serviceWords.get(2))
-              && !luceneMorph.getMorphInfo(words[i].toLowerCase()).toString().contains(serviceWords.get(3))
-          )
-          {
-            if(wordsCounter.containsKey(words[i].toLowerCase())){
-              wordsCounter.put(luceneMorph.getNormalForms(words[i].toLowerCase()).get(0),wordsCounter.get(words[i].toLowerCase())+1);
-            }else{
-              wordsCounter.put(luceneMorph.getNormalForms(words[i].toLowerCase()).get(0),1);
-            }
-          }
-          }catch (Exception e) {
-//            System.out.println(words[i] + " не подошло");
-//            System.out.println(luceneMorph.getNormalForms(words[i].toLowerCase()));
-//            brokenWords.add(words[i]);
+    for (int i = 0; i < words.length; i++){
+      if(WordProcessor.isServiceWord(words[i])){
+        String wordDefaultForm = WordProcessor.getDefaultForm(words[i]);
+        if(!wordDefaultForm.isBlank()){
+          if(wordsCounter.containsKey(wordDefaultForm)){
+            wordsCounter.put(wordDefaultForm,  wordsCounter.get(wordDefaultForm)+1);
+          }else{
+            wordsCounter.put(wordDefaultForm,1);
           }
         }
       }
-    }catch (Exception e) {
-      }
+    }
     return wordsCounter;
   }
 
@@ -181,7 +157,8 @@ public class PageIndexingService {
       try {
         modelSite.setLastError(response.statusMessage());
         modelSite.setStatus(Status.FAILED);
-      }catch(Exception e) {
+      } catch (Exception e) {
+        throw new RuntimeException(e);
       }
     }
     sitesRepository.save(modelSite);
@@ -243,43 +220,39 @@ public class PageIndexingService {
     }
     return new ArrayList<>();
   }
-  
-  public synchronized RequestResponse startPageIndexing(String pageAddress){
-    RequestResponceFailed requestResponseFailed;
-    RequestResponceSucceeded requestResponceSucceeded;
-    if(!isSitePresentInConfiguration(pageAddress)){
-      return requestResponseFailed = new RequestResponceFailed(false, "Данная страница находится за пределами сайтов, указанных в конфигурационном файле");
-    }else{
-      if(!isSitePresentInTheRepository(gettingExactSiteAddress(pageAddress)) || !isPagePresentInRepository(gettingExactPageAddress(pageAddress)) || (isPagePresentInRepository(gettingExactPageAddress(pageAddress)) && areLemmasPresent(pageAddress))){
+
+  public synchronized RequestResponse startPageIndexing(String pageAddress) {
+    if (!isSitePresentInConfiguration(pageAddress)) {
+      return new RequestResponceFailed(false, "Данная страница находится за пределами сайтов, указанных в конфигурационном файле");
+    } else {
+      if (!isSitePresentInTheRepository(gettingExactSiteAddress(pageAddress)) || !isPagePresentInRepository(gettingExactPageAddress(pageAddress)) || (isPagePresentInRepository(gettingExactPageAddress(pageAddress)) && areLemmasPresent(pageAddress))) {
         try {
           response = Connect(pageAddress);
-          try {
-            doc2 = response.parse();
-          } catch (Exception e) {
-          }
-        } catch (Exception e) {
+          doc2 = response.parse();
+        } catch (IOException e) {
+          throw new RuntimeException(e);
         }
-      }else{
-        modelPage = pagesRepository.findByUrlAndId(gettingExactPageAddress(pageAddress),siteId);
+      } else {
+        modelPage = pagesRepository.findByUrlAndId(gettingExactPageAddress(pageAddress), siteId);
         doc2 = Jsoup.parse(modelPage.getContent());
       }
       finalList = sentenceToWords(doc2.body().text());
-      if(areLemmasPresent(pageAddress)){
+      if (areLemmasPresent(pageAddress)) {
         List<Index> index = findLemmas(pageAddress);
-        if(!index.isEmpty()){
+        if (!index.isEmpty()) {
           deleteOldEntries(index, modelPage);
         }
       }
-      if(!isSitePresentInTheRepository(gettingExactSiteAddress(pageAddress))){
+      if (!isSitePresentInTheRepository(gettingExactSiteAddress(pageAddress))) {
         saveSite(response, pageAddress);
       }
-      if(!isPagePresentInRepository(gettingExactPageAddress(pageAddress))){
+      if (!isPagePresentInRepository(gettingExactPageAddress(pageAddress))) {
         savePage(response, pageAddress);
       }
-      if(!finalList.isEmpty()) {
+      if (!finalList.isEmpty()) {
         finalList.forEach(this::savingLemma);
       }
-      return requestResponceSucceeded = new RequestResponceSucceeded(true);
+      return new RequestResponceSucceeded(true);
     }
   }
 

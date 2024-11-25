@@ -2,8 +2,6 @@ package searchengine.services;
 
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Collections;
-import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -18,7 +16,6 @@ import org.jsoup.nodes.Document;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import searchengine.dto.statistics.RequestResponceFailed;
-import searchengine.dto.statistics.RequestResponceSucceeded;
 import searchengine.dto.statistics.RequestResponse;
 import searchengine.dto.statistics.SearchResponseItem;
 import searchengine.dto.statistics.SearchResponseSucceeded;
@@ -27,7 +24,6 @@ import searchengine.model.ModelSite;
 import searchengine.repositories.IndexRepository;
 import searchengine.repositories.LemmaRepository;
 import searchengine.repositories.PagesRepository;
-import searchengine.repositories.SitesRepository;
 
 @RequiredArgsConstructor
 @Service
@@ -74,6 +70,7 @@ public class SearchService {
       return lemmasWithMaxFrequencyToReturn;
   }
 
+  //  сократить
   public ArrayList<String> sentenceToWords(String sentence){
     ArrayList<String> separateWords = new ArrayList<>();
 //    ArrayList<String> brokenWords = new ArrayList<>();
@@ -106,6 +103,7 @@ public class SearchService {
     return separateWords;
   }
 
+  //  сократить
   public ArrayList<String> lemmaToSnippet(String lemma, String text){
     ArrayList<String> snippetLocal = new ArrayList<>();
     String[] words = text.split(" ");
@@ -157,10 +155,7 @@ public class SearchService {
     return snippetLocal;
   }
 
-  private <E extends Comparable<E>> int compare(E e1, E e2) {
-    return e1.compareTo(e2);
-  }
-
+  //  сократить
   public RequestResponse startSearching(String sentence, int offset, int limit, String site){
     if(sentence==null || sentence.isEmpty()){
       return requestResponseFailed = new RequestResponceFailed(false, "Задан пустой поисковый запрос");

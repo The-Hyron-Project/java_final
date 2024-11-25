@@ -135,6 +135,7 @@ public class IndexingService extends RecursiveAction {
     }
   }
 
+//  сократить
   public void startIndexing(){
     if(isFirstRun){
       for(int i = 0; i< initialConSites.getSites().size(); i++){
@@ -264,6 +265,7 @@ public class IndexingService extends RecursiveAction {
     }
   }
 
+  //  сократить
   public void SavePage(){
     if (pagesRepository.countBySiteId(siteId) < numberOfLines && (level < depth || depth == 0)) {
       ModelPage modelPage = new ModelPage();
@@ -337,6 +339,7 @@ public class IndexingService extends RecursiveAction {
     }
   }
 
+  //  сократить
   private void savingLinks(ArrayList linksToSave) {
     if(pagesRepository.countBySiteId(siteId) < numberOfLines){
       for (int i = 0; i < linksToSave.size(); i++) {
