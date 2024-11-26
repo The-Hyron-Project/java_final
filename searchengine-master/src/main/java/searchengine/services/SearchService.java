@@ -1,7 +1,6 @@
 package searchengine.services;
 
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -9,8 +8,6 @@ import java.util.Map.Entry;
 import java.util.Objects;
 import java.util.Optional;
 import lombok.RequiredArgsConstructor;
-import org.apache.lucene.morphology.LuceneMorphology;
-import org.apache.lucene.morphology.russian.RussianLuceneMorphology;
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -21,6 +18,7 @@ import searchengine.dto.statistics.SearchResponseItem;
 import searchengine.dto.statistics.SearchResponseSucceeded;
 import searchengine.model.ModelPage;
 import searchengine.model.ModelSite;
+import searchengine.processors.WordProcessor;
 import searchengine.repositories.IndexRepository;
 import searchengine.repositories.LemmaRepository;
 import searchengine.repositories.PagesRepository;
@@ -35,7 +33,6 @@ public class SearchService {
   @Autowired
   public PagesRepository pagesRepository;
   ArrayList<String> separatedWords;
-  List<String> serviceWords = Arrays.asList(" СОЮЗ "," ЧАСТ", " ПРЕДЛ", " МЕЖД");
   Double currentAllowedMaxLemmaFrequencyTotal = (double) 0;
   HashMap<String, Integer> lemmasWithMaxFrequency;
   Optional<Entry<String, Integer>> currentLowestFrequencyValue;
@@ -70,88 +67,25 @@ public class SearchService {
       return lemmasWithMaxFrequencyToReturn;
   }
 
-  //  сократить
   public ArrayList<String> sentenceToWords(String sentence){
     ArrayList<String> separateWords = new ArrayList<>();
-//    ArrayList<String> brokenWords = new ArrayList<>();
     String[] words = sentence.split("\\.\\s+|\\,*\\s+|\\.\\s*|-+|'|:|\"|\\?|«|»");
-    try{
-      LuceneMorphology luceneMorph = new RussianLuceneMorphology();
       for (int i = 0; i < words.length; i++){
-        if(words[i].matches("\\D*") && !words[i].isBlank() ){
-          try{
-            if
-            (!luceneMorph.getMorphInfo(words[i].toLowerCase()).toString().contains(serviceWords.get(0))
-                && !luceneMorph.getMorphInfo(words[i].toLowerCase()).toString().contains(serviceWords.get(1))
-                && !luceneMorph.getMorphInfo(words[i].toLowerCase()).toString().contains(serviceWords.get(2))
-                && !luceneMorph.getMorphInfo(words[i].toLowerCase()).toString().contains(serviceWords.get(3))
-            )
-            {
-              if(!separateWords.contains(words[i].toLowerCase())){
-                separateWords.add(luceneMorph.getNormalForms(words[i].toLowerCase()).get(0));
-              }
+        if(WordProcessor.isServiceWord(words[i])){
+          String wordDefaultForm = WordProcessor.getDefaultForm(words[i]);
+          if(!wordDefaultForm.isBlank()){
+            if(!separateWords.contains(wordDefaultForm)){
+              separateWords.add(wordDefaultForm);
             }
-          }catch (Exception e) {
-//            System.out.println(words[i] + " не подошло");
-//            System.out.println(luceneMorph.getNormalForms(words[i].toLowerCase()));
-//            brokenWords.add(words[i]);
           }
         }
       }
-    }catch (Exception e) {
-    }
     return separateWords;
   }
 
-  //  сократить
   public ArrayList<String> lemmaToSnippet(String lemma, String text){
-    ArrayList<String> snippetLocal = new ArrayList<>();
     String[] words = text.split(" ");
-    StringBuilder stringBuilder;
-
-    ArrayList<Integer> wordsIndexes = new ArrayList<>();
-    try{
-      LuceneMorphology luceneMorph = new RussianLuceneMorphology();
-      for (int i = 0; i < words.length; i++){
-        if(words[i].matches("\\D*") && !words[i].isBlank() ){
-          String[] words2 = words[i].split("\\.\\s+|\\,*\\s+|\\.\\s*|-+|'|:|\"|\\?|«|»");
-          for (int y = 0; y < words2.length; y++){
-            if(words2[y].matches("\\D*") && !words[y].isBlank() ) {
-              try{
-                if(luceneMorph.getMorphInfo(words2[y].toLowerCase()).toString().contains(lemma)) {
-                  stringBuilder = new StringBuilder();
-                  stringBuilder.append("...");
-                  for(int z = 10;1<=z;z--){
-                    if(!(i-z<0)){
-                      stringBuilder.append(words[i-z]);
-                      stringBuilder.append(" ");
-
-                    }
-                  }
-                  int s = words.length;
-                  stringBuilder.append("<b>"+words[i]+"</b>");
-                  for(int z = 1;10>=z;z++) {
-                    if (!(i + z > words.length-1)) {
-                      int ss = i + z;
-                      stringBuilder.append(" ");
-                      stringBuilder.append(words[i + z]);
-                    }
-                  }
-                  stringBuilder.append("...");
-                  snippetLocal.add(stringBuilder.toString());
-                }
-              }catch (Exception e) {
-//            System.out.println(words[i] + " не подошло");
-//            System.out.println(luceneMorph.getNormalForms(words[i].toLowerCase()));
-//            brokenWords.add(words[i]);
-              }
-            }
-          }
-        }
-      }
-    }catch (Exception e) {
-    }
-    snippetLocal.size();
+    ArrayList<String> snippetLocal = new ArrayList<>(WordProcessor.arrayToSentence(lemma, words));
     return snippetLocal;
   }
 

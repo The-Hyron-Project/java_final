@@ -1,6 +1,7 @@
 package searchengine.processors;
 
 import java.io.IOException;
+import java.util.ArrayList;
 import org.apache.lucene.morphology.LuceneMorphology;
 import org.apache.lucene.morphology.english.EnglishLuceneMorphology;
 import org.apache.lucene.morphology.russian.RussianLuceneMorphology;
@@ -84,5 +85,48 @@ public class WordProcessor {
     } catch (IOException e) {
       throw new RuntimeException(e);
     }
+  }
+
+  public static ArrayList<String> arrayToSentence(String lemma, String[] words){
+    ArrayList<String> snippetToReturn = new ArrayList<>();
+    for (int i = 0; i < words.length; i++){
+      if(words[i].matches("\\D*") && !words[i].isBlank()){
+        String[] words2 = words[i].split("\\.\\s+|\\,*\\s+|\\.\\s*|-+|'|:|\"|\\?|«|»");
+        for (int y = 0; y < words2.length; y++){
+          if(words2[y].matches("[а-яА-ЯЁё]+") && !words[y].isBlank()) {
+              if(getDefaultRussianForm(words2[y]).contains(lemma)) {
+                snippetToReturn.add(createSentence(words, i));
+              }
+          }else if(words2[y].matches("[a-zA-Z]+") && !words[y].isBlank()){
+            if(getDefaultEnglishForm(words2[y]).contains(lemma)) {
+              snippetToReturn.add(createSentence(words, i));
+            }
+          }
+        }
+      }else if(!words[i].isBlank() && words[i].matches("[0-9]+") && words[i].matches(lemma)){
+        snippetToReturn.add(createSentence(words, i));
+      }
+    }
+    return snippetToReturn;
+  }
+
+  private static String createSentence(String[] words, int i ){
+    StringBuilder stringBuilder = new StringBuilder();
+    stringBuilder.append("...");
+    for(int z = 15;1<=z;z--){
+      if(!(i-z<0)){
+        stringBuilder.append(words[i-z]);
+        stringBuilder.append(" ");
+      }
+    }
+    stringBuilder.append("<b>"+words[i]+"</b>");
+    for(int z = 1;15>=z;z++) {
+      if (!(i + z > words.length-1)) {
+        stringBuilder.append(" ");
+        stringBuilder.append(words[i + z]);
+      }
+    }
+    stringBuilder.append("...");
+    return stringBuilder.toString();
   }
 }
