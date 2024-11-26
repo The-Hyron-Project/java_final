@@ -77,7 +77,6 @@ public class IndexingService extends RecursiveAction {
   public static volatile AtomicBoolean isIndexing = new AtomicBoolean(false);
   static List<String> siteNames = new ArrayList<>();
   public static ForkJoinPool forkJoinPool = new ForkJoinPool(Runtime.getRuntime().availableProcessors());
-//  public static ForkJoinPool forkJoinStarterPool = new ForkJoinPool(1);;
   public List<String> arguments;
   public List<CrudRepository> repArguments;
   RequestResponceFailed requestResponseFailed;
