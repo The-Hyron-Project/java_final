@@ -37,7 +37,6 @@ public class SearchService {
   HashMap<String, Integer> lemmasWithMaxFrequency;
   Optional<Entry<String, Integer>> currentLowestFrequencyValue;
   HashMap<String, ArrayList<ModelPage>> lemmasWithPages;
-  ArrayList<ModelPage> pages;
   HashMap<Integer, Integer> pageIdsWithMaxRel;
   HashMap<Integer, Double> pageIdsWithRelRel;
   HashMap<String, HashMap<String, ArrayList<String>>> lemmasWithPathsAndSnippets;
@@ -90,125 +89,32 @@ public class SearchService {
   }
 
   //  сократить
-  public RequestResponse startSearching(String sentence, int offset, int limit, String site){
-    if(sentence==null || sentence.isEmpty()){
-      return requestResponseFailed = new RequestResponceFailed(false, "Задан пустой поисковый запрос");
-    }else{
-        separatedWords = sentenceToWords(sentence);
-        lemmasWithMaxFrequency = getEachLemmaMaxFrequency(separatedWords);
-        if(lemmasWithMaxFrequency.isEmpty()){
-          return searchResponseSucceeded = new SearchResponseSucceeded(true, 0,
-              new ArrayList<>());
-        }
-        pageIdsWithMaxRel = new HashMap<>();
-        pageIdsWithRelRel = new HashMap<>();
-        lemmasWithPathsAndSnippets = new HashMap<>();
-        if(!lemmasWithMaxFrequency.isEmpty()){
-          currentLowestFrequencyValue = lemmasWithMaxFrequency.entrySet()
-              .stream()
-              .min((Entry<String, Integer> e1, Entry<String, Integer> e2) -> e1.getValue()
-                  .compareTo(e2.getValue())
-              );
-        }
-        if(currentLowestFrequencyValue!=null && currentLowestFrequencyValue.isPresent()){
-          currentAllowedMaxLemmaFrequencyTotal = (double) (currentLowestFrequencyValue.get().getValue()*lemmasWithMaxFrequency.size());
-        }
-        lemmasWithPages = new HashMap<>();
-        int pagesArrayReduction = 0;
-      int pagesCounter = 0;
-      for(int i = 0; currentAllowedMaxLemmaFrequencyTotal>=i;i++){
-          for(Map.Entry<String, Integer> entry : lemmasWithMaxFrequency.entrySet()) {
-            if(entry.getValue() == i){
-              List<Integer> lemmaIds = lemmaRepository.findLemmaIdByLemma(entry.getKey());
-              ArrayList<Integer> pagesIds = new ArrayList<>();
-              for(int z = 0;lemmaIds.size()>z;z++){
-                List<Integer> pageIdsNoRel = indexRepository.findPageIdByLemmaId(lemmaIds.get(z));
-                pagesIds.addAll(pageIdsNoRel);
-                for(int p=0;pageIdsNoRel.size()>p;p++){
-                  List<Integer> indexRanks = indexRepository.findAllRanksByPageId(pageIdsNoRel.get(p));
-                  int rankSum = indexRanks.stream().mapToInt(Integer::intValue).sum();
-                  pageIdsWithMaxRel.put(pageIdsNoRel.get(p), rankSum);
-                }
-              }
-              pages = new ArrayList<>();
-              int pagesCounterToIterate;
-              if(pagesCounter!=0 && pagesIds.size()>pagesCounter){
-                pagesCounterToIterate=pagesIds.size()-pagesArrayReduction;
-              }else{
-                pagesCounterToIterate=pagesIds.size();
-              }
-              for(int z = 0;pagesCounterToIterate>z;z++){
-                ModelPage modelPageToCheck = pagesRepository.findById(pagesIds.get(z)).get();
-                if(site!=null && !(site.isEmpty())){
-                  if(Objects.equals(modelPageToCheck.getModelSite().getUrl(), site)){
-                    pages.add(modelPageToCheck);
-                  }
-                }else{
-                  pages.add(modelPageToCheck);
-                }
-              }
-              lemmasWithPages.put(entry.getKey(), pages);
-              if(pagesCounter-1<pages.size()){
-                pagesCounter--;
-              }else{
-                pagesCounter=pages.size();
-              }
-              pagesArrayReduction++;
-            }
-          }
-        }
-        Double maxRel = Double.valueOf(pageIdsWithMaxRel.entrySet()
-            .stream()
-            .max((Entry<Integer, Integer> e1, Entry<Integer, Integer> e2) -> e1.getValue()
-                .compareTo(e2.getValue())
-            ).get().getValue());
+  private ArrayList<SearchResponseItem> formingResponse(){
+    ArrayList<SearchResponseItem> dataToReturn = new ArrayList<>();
+    for(int i = 0; currentAllowedMaxLemmaFrequencyTotal>=i;i++){
+      for(Map.Entry<String, Integer> entry : lemmasWithMaxFrequency.entrySet()) {
+        if(entry.getValue() == i){
+          for(Map.Entry<String, ArrayList<ModelPage>> entry2 : lemmasWithPages.entrySet()) {
+            if(Objects.equals(entry.getKey(), entry2.getKey())){
+              for(int t=0; entry2.getValue().size()>t;t++){
+                for(Entry<String, HashMap<String, ArrayList<String>>> entry3 : lemmasWithPathsAndSnippets.entrySet()) {
+                  if(Objects.equals(entry3.getKey(), entry.getKey())){
+                    for(Entry<String, ArrayList<String>> entry4 : entry3.getValue().entrySet()) {
+                      if(Objects.equals(entry4.getKey(), entry2.getValue().get(t).getModelSite().getUrl() + entry2.getValue().get(t).getPath())){
+                        for(int u = 0;entry4.getValue().size()>u;u++){
 
-        for(Entry<Integer, Integer> entry : pageIdsWithMaxRel.entrySet()) {
-          pageIdsWithRelRel.put(entry.getKey(), entry.getValue()/maxRel);
-        }
+                          ModelSite modelSite1 = entry2.getValue().get(t).getModelSite();
+                          siteToReturn=modelSite1.getUrl();
+                          uriToReturn=entry2.getValue().get(t).getPath();
+                          siteNameToReturn=modelSite1.getName();
+                          doc3=Jsoup.parse(entry2.getValue().get(t).getContent());
+                          titleToReturn=doc3.title();
+                          relevanceToReturn = pageIdsWithRelRel.get(entry2.getValue().get(t).getId());
+                          snippetToReturn=entry4.getValue().get(u);
 
-        for(Entry<String, ArrayList<ModelPage>> entry : lemmasWithPages.entrySet()){
-          ArrayList<String> textArray;
-          HashMap<String, ArrayList<String>> dataToInsert  = new HashMap<>();;
-          String path = "";
-          for(int i = 0;entry.getValue().size()>i;i++){
-            textArray = new ArrayList<>();
-            ModelSite modelSite = entry.getValue().get(i).getModelSite();
-            doc2 = Jsoup.parse(entry.getValue().get(i).getContent());
-            path=modelSite.getUrl()+entry.getValue().get(i).getPath();
-            textArray.addAll(lemmaToSnippet(entry.getKey(), doc2.body().text()));
-            dataToInsert.put(path, textArray);
-          }
-          lemmasWithPathsAndSnippets.put(entry.getKey(), dataToInsert);
-        }
-      data = new ArrayList<>();
-      lemmasWithMaxFrequency.entrySet().removeIf(entry -> entry.getValue()>currentAllowedMaxLemmaFrequencyTotal);
-      for(int i = 0; currentAllowedMaxLemmaFrequencyTotal>=i;i++){
-        for(Map.Entry<String, Integer> entry : lemmasWithMaxFrequency.entrySet()) {
-          if(entry.getValue() == i){
-            for(Map.Entry<String, ArrayList<ModelPage>> entry2 : lemmasWithPages.entrySet()) {
-              if(Objects.equals(entry.getKey(), entry2.getKey())){
-                for(int t=0; entry2.getValue().size()>t;t++){
-                  for(Entry<String, HashMap<String, ArrayList<String>>> entry3 : lemmasWithPathsAndSnippets.entrySet()) {
-                    if(Objects.equals(entry3.getKey(), entry.getKey())){
-                      for(Entry<String, ArrayList<String>> entry4 : entry3.getValue().entrySet()) {
-                        if(Objects.equals(entry4.getKey(), entry2.getValue().get(t).getModelSite().getUrl() + entry2.getValue().get(t).getPath())){
-                          for(int u = 0;entry4.getValue().size()>u;u++){
+                          dataToReturn.add(new SearchResponseItem(siteToReturn, siteNameToReturn,
+                              uriToReturn, titleToReturn, snippetToReturn, relevanceToReturn));
 
-                            ModelSite modelSite1 = entry2.getValue().get(t).getModelSite();
-                            siteToReturn=modelSite1.getUrl();
-                            uriToReturn=entry2.getValue().get(t).getPath();
-                            siteNameToReturn=modelSite1.getName();
-                            doc3=Jsoup.parse(entry2.getValue().get(t).getContent());
-                            titleToReturn=doc3.title();
-                            relevanceToReturn = pageIdsWithRelRel.get(entry2.getValue().get(t).getId());
-                            snippetToReturn=entry4.getValue().get(u);
-
-                            SearchResponseItem searchResponseItem = new SearchResponseItem(siteToReturn, siteNameToReturn,
-                                uriToReturn, titleToReturn, snippetToReturn, relevanceToReturn);
-                            data.add(searchResponseItem);
-
-                          }
                         }
                       }
                     }
@@ -216,21 +122,182 @@ public class SearchService {
                 }
               }
             }
-              }
+          }
+        }
+      }
+    }
+
+    return dataToReturn;
+  }
+
+  //  сократить
+  private HashMap<Integer, Integer> calculatePageIdsWithMaxRel(Double maxLemmaFrequency, HashMap<String, Integer> lemmasWithMaxFrequency){
+    HashMap<Integer, Integer> mapToReturn = new HashMap<>();
+    for(int i = 0; maxLemmaFrequency>=i;i++) {
+      for (Map.Entry<String, Integer> entry : lemmasWithMaxFrequency.entrySet()) {
+        if (entry.getValue() == i) {
+          List<Integer> lemmaIds = lemmaRepository.findLemmaIdByLemma(entry.getKey());
+          ArrayList<Integer> pagesIds = new ArrayList<>();
+          for (int z = 0; lemmaIds.size() > z; z++) {
+            List<Integer> pageIdsNoRel = indexRepository.findPageIdByLemmaId(lemmaIds.get(z));
+            pagesIds.addAll(pageIdsNoRel);
+            for (int p = 0; pageIdsNoRel.size() > p; p++) {
+              List<Integer> indexRanks = indexRepository.findAllRanksByPageId(pageIdsNoRel.get(p));
+              int rankSum = indexRanks.stream().mapToInt(Integer::intValue).sum();
+              mapToReturn.put(pageIdsNoRel.get(p), rankSum);
             }
           }
-        if(offset>=data.size()){
-          offset=0;
         }
-        if(limit+offset>data.size()){
-          limit=data.size();
-        }else{
-          limit=limit+offset;
-        }
-
-      return searchResponseSucceeded = new SearchResponseSucceeded(true, data.size(),
-          new ArrayList<>(data.subList(offset, limit)));
+      }
     }
+    return mapToReturn;
+  }
+
+  //  сократить
+  private HashMap<String, ArrayList<ModelPage>> mapLemmasToPages(String site){
+    HashMap<String, ArrayList<ModelPage>> lemmasWithPagesToReturn = new HashMap<>();
+    int pagesArrayReduction = 0;
+    int pagesCounter = 0;
+    ArrayList<ModelPage> pages;
+    for(int i = 0; currentAllowedMaxLemmaFrequencyTotal>=i;i++){
+      for(Map.Entry<String, Integer> entry : lemmasWithMaxFrequency.entrySet()) {
+        if(entry.getValue() == i){
+          List<Integer> lemmaIds = lemmaRepository.findLemmaIdByLemma(entry.getKey());
+          ArrayList<Integer> pagesIds = new ArrayList<>();
+          for(int z = 0;lemmaIds.size()>z;z++){
+            List<Integer> pageIdsNoRel = indexRepository.findPageIdByLemmaId(lemmaIds.get(z));
+            pagesIds.addAll(pageIdsNoRel);
+//            for(int p=0;pageIdsNoRel.size()>p;p++){
+//              List<Integer> indexRanks = indexRepository.findAllRanksByPageId(pageIdsNoRel.get(p));
+//              int rankSum = indexRanks.stream().mapToInt(Integer::intValue).sum();
+//              pageIdsWithMaxRel.put(pageIdsNoRel.get(p), rankSum);
+//            }
+          }
+          pages = new ArrayList<>();
+          int pagesCounterToIterate;
+          if(pagesCounter!=0 && pagesIds.size()>pagesCounter){
+            pagesCounterToIterate=pagesIds.size()-pagesArrayReduction;
+          }else{
+            pagesCounterToIterate=pagesIds.size();
+          }
+          for(int z = 0;pagesCounterToIterate>z;z++){
+            ModelPage modelPageToCheck = pagesRepository.findById(pagesIds.get(z)).get();
+            if(site!=null && !(site.isEmpty())){
+              if(Objects.equals(modelPageToCheck.getModelSite().getUrl(), site)){
+                pages.add(modelPageToCheck);
+              }
+            }else{
+              pages.add(modelPageToCheck);
+            }
+          }
+          lemmasWithPagesToReturn.put(entry.getKey(), pages);
+          if(pagesCounter-1<pages.size()){
+            pagesCounter--;
+          }else{
+            pagesCounter=pages.size();
+          }
+          pagesArrayReduction++;
+        }
+      }
+    }
+    return lemmasWithPagesToReturn;
+  }
+
+  //  сократить
+  private HashMap<String, HashMap<String, ArrayList<String>>> mapLemmasToPathsAndSnippets(){
+    HashMap<String, HashMap<String, ArrayList<String>>> lemmasWithPathsAndSnippetsToReturn = new HashMap<>();
+    for(Entry<String, ArrayList<ModelPage>> entry : lemmasWithPages.entrySet()){
+      ArrayList<String> textArray;
+      HashMap<String, ArrayList<String>> dataToInsert  = new HashMap<>();;
+      String path = "";
+      for(int i = 0;entry.getValue().size()>i;i++){
+        textArray = new ArrayList<>();
+        ModelSite modelSite = entry.getValue().get(i).getModelSite();
+        doc2 = Jsoup.parse(entry.getValue().get(i).getContent());
+        path=modelSite.getUrl()+entry.getValue().get(i).getPath();
+        textArray.addAll(lemmaToSnippet(entry.getKey(), doc2.body().text()));
+        dataToInsert.put(path, textArray);
+      }
+      lemmasWithPathsAndSnippetsToReturn.put(entry.getKey(), dataToInsert);
+    }
+    return lemmasWithPathsAndSnippetsToReturn;
+  }
+
+  //  сократить
+  private int calculateOffset(int offset){
+    if(offset>=data.size()){
+      offset=0;
+    }
+    return offset;
+  }
+
+  //  сократить
+  private int calculateLimit(int limit, int offset, int size){
+    if(limit+offset>size){
+      limit=size;
+    }else{
+      limit=limit+offset;
+    }
+    return limit;
+  }
+
+  //  сократить
+  private Optional calculateLowestFrequency(HashMap<String, Integer> lemmasWithMaxFrequency){
+    if(!lemmasWithMaxFrequency.isEmpty()){
+      Optional localCurrentLowestFrequencyValue = lemmasWithMaxFrequency.entrySet()
+          .stream()
+          .min((Entry<String, Integer> e1, Entry<String, Integer> e2) -> e1.getValue()
+              .compareTo(e2.getValue())
+          );
+      return localCurrentLowestFrequencyValue;
+    }
+    return Optional.empty();
+  }
+
+  //  сократить
+  private Double calculateAllowedMaxLemmaFrequencyTotal(Optional<Entry<String, Integer>> currentLowestFrequencyValue, int size){
+    if(currentLowestFrequencyValue!=null && currentLowestFrequencyValue.isPresent()) {
+      return  (double) (currentLowestFrequencyValue.get().getValue()
+          * size);
+    }
+    return (double) 0;
+  }
+
+  //  сократить
+  private HashMap<Integer, Double> calculatePageIdsWithRelRel(HashMap<Integer, Integer> pageIdsWithMaxRel, Double maxRel){
+    HashMap<Integer, Double> localMap = new HashMap<>();
+    for(Entry<Integer, Integer> entry : pageIdsWithMaxRel.entrySet()) {
+      localMap.put(entry.getKey(), entry.getValue()/maxRel);
+    }
+    return localMap;
+  }
+
+  //  сократить
+  private Double calculateMaxRel(HashMap<Integer, Integer> pageIdsWithMaxRel){
+   return Double.valueOf(pageIdsWithMaxRel.entrySet().stream().max((Entry<Integer, Integer> e1, Entry<Integer, Integer> e2) -> e1.getValue().compareTo(e2.getValue())).get().getValue());
+  }
+
+  //  сократить
+  public RequestResponse startSearching(String sentence, int offset, int limit, String site){
+    if(sentence==null || sentence.isEmpty()){
+      return requestResponseFailed = new RequestResponceFailed(false, "Задан пустой поисковый запрос");
+    }
+    separatedWords = sentenceToWords(sentence);
+    lemmasWithMaxFrequency = getEachLemmaMaxFrequency(separatedWords);
+    if(lemmasWithMaxFrequency.isEmpty()){
+      return searchResponseSucceeded = new SearchResponseSucceeded(true, 0,
+          new ArrayList<>());
+    }
+    currentLowestFrequencyValue = calculateLowestFrequency(lemmasWithMaxFrequency);
+    currentAllowedMaxLemmaFrequencyTotal = calculateAllowedMaxLemmaFrequencyTotal(currentLowestFrequencyValue, lemmasWithMaxFrequency.size());
+    pageIdsWithMaxRel = new HashMap<>(calculatePageIdsWithMaxRel(currentAllowedMaxLemmaFrequencyTotal, lemmasWithMaxFrequency));
+    lemmasWithPages = new HashMap<>(mapLemmasToPages(site));
+    pageIdsWithRelRel = new HashMap<>(calculatePageIdsWithRelRel(pageIdsWithMaxRel, calculateMaxRel(pageIdsWithMaxRel)));
+    lemmasWithPathsAndSnippets = new HashMap<>(mapLemmasToPathsAndSnippets());
+    data = new ArrayList<>(formingResponse());
+    lemmasWithMaxFrequency.entrySet().removeIf(entry -> entry.getValue()>currentAllowedMaxLemmaFrequencyTotal);
+    return searchResponseSucceeded = new SearchResponseSucceeded(true, data.size(),
+        new ArrayList<>(data.subList(calculateOffset(offset), calculateLimit(limit, calculateOffset(offset), data.size()))));
   }
 }
 
