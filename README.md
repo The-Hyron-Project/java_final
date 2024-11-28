@@ -38,15 +38,18 @@
 <p>
   Вкладка <strong>Dashboard</strong> отображает текущий перечень сайтов и состояние и подробности их индексации. 
 </p>
+  <img width="1280" alt="Снимок экрана 2024-11-28 в 21 37 10" src="https://github.com/user-attachments/assets/4ec437fc-a3da-4a6e-9baa-6654a49c4951">
 <p>
   Вкладка <strong>Management</strong> позволяет запустить индексацию всего перечня сайтов из файла application.yaml <i>(кнопка Start indexing)</i>
   или только одной конкретной страницы сайта, присутствующего в перечне <i>(поле Add/update page: и кнопка ADD/UPDATE)</i>.
 </p>
+  <img width="1280" alt="Снимок экрана 2024-11-28 в 21 37 18" src="https://github.com/user-attachments/assets/e7f83aed-6912-4a97-8da4-53689d67ddf2">
 <p>
   Вкладка <strong>Search</strong> позволяет выполнить поиск по одному или всем проиндексированным сайтам из перечня. 
   Поисковый запрос указывается в поле <strong>Query</strong>. Выбор сайтов для поиска происходит при помощи выпадающего списка <i>(по умолчанию заполнено значеним All sites)</i>, 
   запуск поиска происходит при помощи кнопки <strong>Search</strong>
 </p>
+  <img width="1280" alt="Снимок экрана 2024-11-28 в 21 37 28" src="https://github.com/user-attachments/assets/e6870b77-860c-4756-86b6-3baa9e950e1c">
 <p>
   Результат поиска выдаётся порционно по 10 позиций.
 </p>
