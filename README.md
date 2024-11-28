@@ -50,3 +50,5 @@
 <p>
   Результат поиска выдаётся порционно по 10 позиций.
 </p>
+<img width="1280" alt="Снимок экрана 2024-11-28 в 19 39 24" src="https://github.com/user-attachments/assets/314e3da8-ffcb-4adf-aff2-005997d55935">
+<img width="1280" alt="Снимок экрана 2024-11-28 в 20 17 53" src="https://github.com/user-attachments/assets/a8526cf7-50af-489c-a989-99d276fde4c9">
