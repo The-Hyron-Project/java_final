@@ -6,6 +6,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.jsoup.Connection;
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
@@ -28,6 +29,7 @@ import searchengine.repositories.LemmaRepository;
 import searchengine.repositories.PagesRepository;
 import searchengine.repositories.SitesRepository;
 
+@Slf4j
 @RequiredArgsConstructor
 @Service
 public class PageIndexingService {
@@ -143,6 +145,7 @@ public class PageIndexingService {
   }
 
   public void saveSite(Connection.Response response, String pageAddress){
+    log.info("Сохраняем сайт " + pageAddress);
     ModelSite modelSite = new ModelSite();
     modelSite.setUrl(gettingExactSiteAddress(pageAddress));
     modelSite.setName(siteName);
@@ -166,6 +169,7 @@ public class PageIndexingService {
   }
 
   public void deleteOldEntries(List<Index> index, ModelPage modelPage){
+    log.info("ИУдаляем старые леммы");
     if(!index.isEmpty()){
       indexRepository.deleteIndexByPageId(modelPage.getId());
       pagesRepository.delete(modelPage);
@@ -184,6 +188,7 @@ public class PageIndexingService {
   }
 
   public void savePage(Connection.Response response, String pageAddress){
+    log.info("Сохраняем страницу " + pageAddress);
     modelPage = new ModelPage();
     if(response!=null && response.statusCode()==200) {
       modelPage.setCode(response.statusCode());
@@ -201,6 +206,7 @@ public class PageIndexingService {
   }
 
   public Boolean areLemmasPresent(String pageAddress){
+    log.info("Проверка наличия лемм для " + pageAddress);
     modelPage = pagesRepository.findByUrlAndId(gettingExactPageAddress(pageAddress),siteId);
     if(modelPage==null){
       return false;
@@ -213,6 +219,7 @@ public class PageIndexingService {
   }
   
   public List<Index> findLemmas(String pageAddress){
+    log.info("Ищем леммы для " + pageAddress);
     modelPage = pagesRepository.findByUrlAndId(gettingExactPageAddress(pageAddress),siteId);
     List<Index> index = indexRepository.findIndexByPageId(modelPage.getId());
     if(!index.isEmpty()){
@@ -257,6 +264,7 @@ public class PageIndexingService {
   }
 
   public void savingLemma(String word, int rank){
+    log.info("Сохраняем лемму для " + word);
     Lemma lemma = lemmaRepository.findLemmaByLemmaAndSiteId(word,siteId);
    if(lemma==null){
      lemma = new Lemma();
