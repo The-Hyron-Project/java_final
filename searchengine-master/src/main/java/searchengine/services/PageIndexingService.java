@@ -5,6 +5,8 @@ import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
+import java.util.concurrent.ForkJoinPool;
+import lombok.Builder;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.jsoup.Connection;
@@ -46,7 +48,6 @@ public class PageIndexingService {
   @Autowired
   public IndexRepository indexRepository;
   ModelPage modelPage;
-  HashMap<String, Integer> wordsCounter;
   Connection.Response response = null;
   Document doc2 = null;
   public String userAgent;
@@ -55,6 +56,8 @@ public class PageIndexingService {
   public int siteId;
   String siteName;
   HashMap<String, Integer> finalList;
+  List<Thread> subTasks = new ArrayList<>();
+  HashMap<String, Integer> wordsCounter;
 
   public PageIndexingService(List<CrudRepository> repArguments, ConnectionProperties connectionProperties, SitesList initialConSites){
     this.sitesRepository = (SitesRepository) repArguments.get(0);
@@ -129,9 +132,17 @@ public class PageIndexingService {
   public HashMap<String, Integer> sentenceToWords(String sentence){
     wordsCounter = new HashMap<>();
     String[] words = sentence.split("\\.\\s+|\\,*\\s+|\\.\\s*|-+|'|:|\"|\\?|«|»");
-    for (int i = 0; i < words.length; i++){
-      if(WordProcessor.isServiceWord(words[i])){
-        String wordDefaultForm = WordProcessor.getDefaultForm(words[i]);
+    if(words.length<6){
+      return sentenceToWordsSingleThread(words, 0, words.length);
+    }else{
+      return sentenceToWordsMultiThread(words);
+    }
+  }
+
+  public HashMap<String, Integer> sentenceToWordsSingleThread(String[] words, int start, int finish){
+    for (; start < finish; start++){
+      if(WordProcessor.isServiceWord(words[start])){
+        String wordDefaultForm = WordProcessor.getDefaultForm(words[start]);
         if(!wordDefaultForm.isBlank()){
           if(wordsCounter.containsKey(wordDefaultForm)){
             wordsCounter.put(wordDefaultForm,  wordsCounter.get(wordDefaultForm)+1);
@@ -139,6 +150,45 @@ public class PageIndexingService {
             wordsCounter.put(wordDefaultForm,1);
           }
         }
+      }
+    }
+    return wordsCounter;
+  }
+
+  public HashMap<String, Integer> sentenceToWordsMultiThread(String[] words){
+    Thread PageIndexingThread = new Thread()
+    {
+      public void run()
+      {
+        sentenceToWordsSingleThread(words, 0, words.length/3);
+      }
+    };
+
+    Thread PageIndexingThread2 = new Thread()
+    {
+      public void run()
+      {
+        sentenceToWordsSingleThread(words, words.length/3, words.length/3*2);
+      }
+    };
+    Thread PageIndexingThread3 = new Thread()
+    {
+      public void run()
+      {
+        sentenceToWordsSingleThread(words, words.length/3*2, words.length);
+      }
+    };
+    subTasks.add(PageIndexingThread);
+    PageIndexingThread.start();
+    subTasks.add(PageIndexingThread2);
+    PageIndexingThread2.start();
+    subTasks.add(PageIndexingThread3);
+    PageIndexingThread3.start();
+    for (Thread task : subTasks) {
+      try {
+        task.join();
+      } catch (InterruptedException e) {
+        throw new RuntimeException(e);
       }
     }
     return wordsCounter;
@@ -228,7 +278,7 @@ public class PageIndexingService {
     return new ArrayList<>();
   }
 
-  public synchronized RequestResponse startPageIndexing(String pageAddress) {
+  public RequestResponse startPageIndexing(String pageAddress) {
     if (!isSitePresentInConfiguration(pageAddress)) {
       return new RequestResponceFailed(false, "Данная страница находится за пределами сайтов, указанных в конфигурационном файле");
     } else {
@@ -263,8 +313,8 @@ public class PageIndexingService {
     }
   }
 
-  public void savingLemma(String word, int rank){
-    log.info("Сохраняем лемму для " + word);
+  public synchronized void savingLemma(String word, int rank){
+//    log.info("Сохраняем лемму для " + word);
     Lemma lemma = lemmaRepository.findLemmaByLemmaAndSiteId(word,siteId);
    if(lemma==null){
      lemma = new Lemma();

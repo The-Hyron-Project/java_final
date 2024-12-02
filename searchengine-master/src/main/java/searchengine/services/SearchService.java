@@ -40,6 +40,8 @@ public class SearchService {
   private HashMap<Integer, Double> pageIdsWithRelRel;
   private HashMap<String, HashMap<String, ArrayList<String>>> lemmasWithPathsAndSnippets;
   private ArrayList<SearchResponseItem> data;
+  ArrayList<String> separateWords;
+  List<Thread> subTasks = new ArrayList<>();
 
   private HashMap<String, Integer> getEachLemmaMaxFrequency(ArrayList<String> separatedWords){
     HashMap<String, Integer> lemmasWithMaxFrequencyToReturn = new HashMap<>();
@@ -56,18 +58,65 @@ public class SearchService {
   }
 
   private ArrayList<String> sentenceToWords(String sentence){
-    ArrayList<String> separateWords = new ArrayList<>();
+    separateWords = new ArrayList<>();
     String[] words = sentence.split("\\.\\s+|\\,*\\s+|\\.\\s*|-+|'|:|\"|\\?|«|»");
-      for (int i = 0; i < words.length; i++){
-        if(WordProcessor.isServiceWord(words[i])){
-          String wordDefaultForm = WordProcessor.getDefaultForm(words[i]);
-          if(!wordDefaultForm.isBlank()){
-            if(!separateWords.contains(wordDefaultForm)){
-              separateWords.add(wordDefaultForm);
-            }
+    if(words.length<6){
+      return sentenceToWordsSingleThread(words, 0, words.length);
+    }else{
+      return sentenceToWordsMultiThread(words);
+    }
+  }
+
+  public ArrayList<String> sentenceToWordsSingleThread(String[] words, int start, int finish){
+    for (; start < finish; start++){
+      if(WordProcessor.isServiceWord(words[start])){
+        String wordDefaultForm = WordProcessor.getDefaultForm(words[start]);
+        if(!wordDefaultForm.isBlank()){
+          if(!separateWords.contains(wordDefaultForm)){
+            separateWords.add(wordDefaultForm);
           }
         }
       }
+    }
+    return separateWords;
+  }
+
+  public ArrayList<String> sentenceToWordsMultiThread(String[] words){
+    Thread PageIndexingThread = new Thread()
+    {
+      public void run()
+      {
+        sentenceToWordsSingleThread(words, 0, words.length/3);
+      }
+    };
+
+    Thread PageIndexingThread2 = new Thread()
+    {
+      public void run()
+      {
+        sentenceToWordsSingleThread(words, words.length/3, words.length/3*2);
+      }
+    };
+    Thread PageIndexingThread3 = new Thread()
+    {
+      public void run()
+      {
+        sentenceToWordsSingleThread(words, words.length/3*2, words.length);
+      }
+    };
+    subTasks.add(PageIndexingThread);
+    PageIndexingThread.start();
+    subTasks.add(PageIndexingThread2);
+    PageIndexingThread2.start();
+    subTasks.add(PageIndexingThread3);
+    PageIndexingThread3.start();
+    for (Thread task : subTasks) {
+      try {
+        task.join();
+      } catch (InterruptedException e) {
+        throw new RuntimeException(e);
+      }
+    }
     return separateWords;
   }
 

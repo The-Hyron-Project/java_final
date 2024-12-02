@@ -2,6 +2,7 @@ package searchengine.processors;
 
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.HashMap;
 import org.apache.lucene.morphology.LuceneMorphology;
 import org.apache.lucene.morphology.english.EnglishLuceneMorphology;
 import org.apache.lucene.morphology.russian.RussianLuceneMorphology;
