@@ -88,7 +88,7 @@ public class WordProcessor {
     ArrayList<String> snippetToReturn = new ArrayList<>();
     for (int i = 0; i < words.length; i++){
       if(words[i].matches("\\D*") && !words[i].isBlank()){
-        String[] words2 = words[i].split("\\.\\s+|\\,*\\s+|\\.\\s*|-+|'|:|\"|\\?|«|»");
+        String[] words2 = words[i].split("\\.\\s+|\\,\\s+|\\.\\s*|-+|'|:|\"|\\?|«|»|,");
         for (int y = 0; y < words2.length; y++){
           if(words2[y].matches("[а-яА-ЯЁё]+") && !words[y].isBlank()) {
               if(getDefaultRussianForm(words2[y]).contains(lemma)) {
