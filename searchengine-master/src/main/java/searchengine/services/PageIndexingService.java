@@ -5,8 +5,6 @@ import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
-import java.util.concurrent.ForkJoinPool;
-import lombok.Builder;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.jsoup.Connection;
@@ -58,6 +56,8 @@ public class PageIndexingService {
   HashMap<String, Integer> finalList;
   List<Thread> subTasks = new ArrayList<>();
   HashMap<String, Integer> wordsCounter;
+  private static final Object mutex = new Object();
+
 
   public PageIndexingService(List<CrudRepository> repArguments, ConnectionProperties connectionProperties, SitesList initialConSites){
     this.sitesRepository = (SitesRepository) repArguments.get(0);
@@ -144,10 +144,12 @@ public class PageIndexingService {
       if(WordProcessor.isServiceWord(words[start])){
         String wordDefaultForm = WordProcessor.getDefaultForm(words[start]);
         if(!wordDefaultForm.isBlank()){
-          if(wordsCounter.containsKey(wordDefaultForm)){
-            wordsCounter.put(wordDefaultForm,  wordsCounter.get(wordDefaultForm)+1);
-          }else{
-            wordsCounter.put(wordDefaultForm,1);
+          synchronized(this){
+            if(wordsCounter.containsKey(wordDefaultForm)){
+              wordsCounter.put(wordDefaultForm, wordsCounter.get(wordDefaultForm) + 1);
+            }else{
+              wordsCounter.put(wordDefaultForm,1);
+            }
           }
         }
       }
@@ -156,28 +158,12 @@ public class PageIndexingService {
   }
 
   public HashMap<String, Integer> sentenceToWordsMultiThread(String[] words){
-    Thread PageIndexingThread = new Thread()
-    {
-      public void run()
-      {
-        sentenceToWordsSingleThread(words, 0, words.length/3);
-      }
-    };
-
-    Thread PageIndexingThread2 = new Thread()
-    {
-      public void run()
-      {
-        sentenceToWordsSingleThread(words, words.length/3, words.length/3*2);
-      }
-    };
-    Thread PageIndexingThread3 = new Thread()
-    {
-      public void run()
-      {
-        sentenceToWordsSingleThread(words, words.length/3*2, words.length);
-      }
-    };
+    Thread PageIndexingThread = new Thread(
+        () -> sentenceToWordsSingleThread(words, 0, words.length/3));
+    Thread PageIndexingThread2 = new Thread(
+        () -> sentenceToWordsSingleThread(words, words.length/3, words.length/3*2));
+    Thread PageIndexingThread3 = new Thread(
+        () -> sentenceToWordsSingleThread(words, words.length/3*2, words.length));
     subTasks.add(PageIndexingThread);
     PageIndexingThread.start();
     subTasks.add(PageIndexingThread2);
@@ -219,7 +205,7 @@ public class PageIndexingService {
   }
 
   public void deleteOldEntries(List<Index> index, ModelPage modelPage){
-    log.info("ИУдаляем старые леммы");
+    log.info("Удаляем старые леммы");
     if(!index.isEmpty()){
       indexRepository.deleteIndexByPageId(modelPage.getId());
       pagesRepository.delete(modelPage);
@@ -306,30 +292,31 @@ public class PageIndexingService {
       if (!isPagePresentInRepository(gettingExactPageAddress(pageAddress))) {
         savePage(response, pageAddress);
       }
-      if (!finalList.isEmpty()) {
-        finalList.forEach(this::savingLemma);
-      }
+        if (!finalList.isEmpty()) {
+            finalList.forEach(this::savingLemma);
+        }
       return new RequestResponceSucceeded(true);
     }
   }
 
-  public synchronized void savingLemma(String word, int rank){
-//    log.info("Сохраняем лемму для " + word);
-    Lemma lemma = lemmaRepository.findLemmaByLemmaAndSiteId(word,siteId);
-   if(lemma==null){
-     lemma = new Lemma();
-     lemma.setLemma(word);
-     lemma.setModelSite(sitesRepository.findById(siteId).get());
-     lemma.setFrequency(1);
-     lemmaRepository.save(lemma);
-   }else{
-     lemma.setFrequency(lemma.getFrequency()+1);
-     lemmaRepository.save(lemma);
-   }
-    lemma = lemmaRepository.findLemmaByLemmaAndSiteId(word,siteId);
+  public void savingLemma(String word, int rank){
+    synchronized(mutex){
+      Lemma lemma = lemmaRepository.findLemmaByLemmaAndSiteId(word,siteId);
+      if(lemma==null){
+        lemma = new Lemma();
+        lemma.setLemma(word);
+        lemma.setModelSite(sitesRepository.findById(siteId).get());
+        lemma.setFrequency(1);
+        lemmaRepository.save(lemma);
+      }else{
+        lemma.setFrequency(lemma.getFrequency()+1);
+        lemmaRepository.save(lemma);
+      }
+    }
+    Lemma lemmaSaved = lemmaRepository.findLemmaByLemmaAndSiteId(word,siteId);
     Index index = new Index();
     index.setRank((float) rank);
-    index.setLemma(lemma);
+    index.setLemma(lemmaSaved);
     index.setModelPage(modelPage);
     indexRepository.save(index);
   }

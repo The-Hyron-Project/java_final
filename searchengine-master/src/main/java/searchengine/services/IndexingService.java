@@ -122,8 +122,6 @@ public class IndexingService extends RecursiveAction {
             }
           }
         }
-        isIndexing.set(false);
-        isStarted.set(false);
         if(!isIndexing.get()){
           for (IndexingService task : subTasks) {
             task.cancel(true);
@@ -135,6 +133,8 @@ public class IndexingService extends RecursiveAction {
         if(isIndexing.get()){
           log.info("Indexing is finished");
         }
+        isIndexing.set(false);
+        isStarted.set(false);
       }
     };
     ScheduledFuture<?> collectionHandle =
