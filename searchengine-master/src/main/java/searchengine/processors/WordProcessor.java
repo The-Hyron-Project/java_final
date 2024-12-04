@@ -10,6 +10,22 @@ import searchengine.services.EnglishServiceWords;
 import searchengine.services.RussianServiceWords;
 
 public class WordProcessor {
+  static LuceneMorphology luceneMorphRu;
+  static LuceneMorphology luceneMorphEng;
+
+  static {
+    try {
+      luceneMorphEng = new EnglishLuceneMorphology();
+    } catch (IOException e) {
+      throw new RuntimeException(e);
+    }
+    try {
+      luceneMorphRu = new RussianLuceneMorphology();
+    } catch (IOException e) {
+      throw new RuntimeException(e);
+    }
+  }
+
 
   public static boolean isServiceWord(String wordToCheck){
     if(wordToCheck.matches("[а-яА-Я]+") && !wordToCheck.isBlank() ){
@@ -38,25 +54,15 @@ public class WordProcessor {
   }
 
   private static String simpleRussianMorphInfo(String wordToCheck){
-    try {
-      LuceneMorphology luceneMorph = new RussianLuceneMorphology();
-      String morphInfoFull = luceneMorph.getMorphInfo(wordToCheck.toLowerCase()).toString();
+      String morphInfoFull = luceneMorphRu.getMorphInfo(wordToCheck.toLowerCase()).toString();
       String[] morphInfo = morphInfoFull.replace("[","").replace("]","").split(" ");
       return morphInfo[1];
-    } catch (IOException e) {
-      throw new RuntimeException(e);
-    }
   }
 
   private static String simpleEnglishMorphInfo(String wordToCheck) {
-    try {
-      LuceneMorphology luceneMorph = new EnglishLuceneMorphology();
-      String morphInfoFull = luceneMorph.getMorphInfo(wordToCheck.toLowerCase()).toString();
+      String morphInfoFull = luceneMorphEng.getMorphInfo(wordToCheck.toLowerCase()).toString();
       String[] morphInfo = morphInfoFull.replace("[", "").replace("]", "").split(" ");
       return morphInfo[1];
-    } catch (IOException e) {
-      throw new RuntimeException(e);
-    }
   }
 
   public static String getDefaultForm(String wordToGetForm){
@@ -71,21 +77,11 @@ public class WordProcessor {
   }
 
   private static String getDefaultRussianForm(String russianWordToGetForm){
-      try {
-        LuceneMorphology luceneMorph = new RussianLuceneMorphology();
-        return luceneMorph.getNormalForms(russianWordToGetForm.toLowerCase()).get(0).toLowerCase();
-      } catch (IOException e) {
-        throw new RuntimeException(e);
-      }
+        return luceneMorphRu.getNormalForms(russianWordToGetForm.toLowerCase()).get(0).toLowerCase();
     }
 
   private static String getDefaultEnglishForm(String englishWordToGetForm){
-    try {
-      LuceneMorphology luceneMorph = new EnglishLuceneMorphology();
-      return luceneMorph.getNormalForms(englishWordToGetForm.toLowerCase()).get(0).toLowerCase();
-    } catch (IOException e) {
-      throw new RuntimeException(e);
-    }
+      return luceneMorphEng.getNormalForms(englishWordToGetForm.toLowerCase()).get(0).toLowerCase();
   }
 
   public static ArrayList<String> arrayToSentence(String lemma, String[] words){

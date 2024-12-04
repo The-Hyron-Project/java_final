@@ -60,8 +60,8 @@ public class IndexingService extends RecursiveAction {
   public String referrer;
   public String timeout;
   int level;
-  static int numberOfLines = 10;
-  static int depth = 0;
+  static int NUMBEROFLINES = 0;
+  static int DEPTH = 0;
   String url = "";
   String name = "";
   String baseUrl = "";
@@ -201,7 +201,7 @@ public class IndexingService extends RecursiveAction {
   }
 
   private ArrayList<Document> isAvailable(String url) {
-    if (pagesRepository.countBySiteId(siteId) < numberOfLines && (level < depth || depth == 0)) {
+    if ((pagesRepository.countBySiteId(siteId) < NUMBEROFLINES || NUMBEROFLINES == 0) && (level < DEPTH || DEPTH == 0)) {
       ArrayList<Document> AvailableLinks = new ArrayList<>();
       if (pagesRepository.findByPath(url)==null) {
         try {
@@ -270,7 +270,7 @@ public class IndexingService extends RecursiveAction {
   }
 
   public void SavePage() {
-    if (pagesRepository.countBySiteId(siteId) < numberOfLines && (level < depth || depth == 0)
+    if ((pagesRepository.countBySiteId(siteId) < NUMBEROFLINES || NUMBEROFLINES == 0) && (level < DEPTH || DEPTH == 0)
         && response != null) {
       ModelPage modelPage = new ModelPage();
       modelPage.setModelSite(sitesRepository.findById(siteId).get());
@@ -332,7 +332,7 @@ public class IndexingService extends RecursiveAction {
   }
 
   private void savingLinks(ArrayList linksToSave) {
-    if(isIndexing.get() && pagesRepository.countBySiteId(siteId) < numberOfLines){
+    if((isIndexing.get() && pagesRepository.countBySiteId(siteId) < NUMBEROFLINES || NUMBEROFLINES == 0)){
       for (int i = 0; i < linksToSave.size(); i++) {
         if (!uncheckedCheckerLinks.contains(linksToSave.get(i))
             && pagesRepository.findByPath(linksToSave.get(i).toString().replace(baseUrl, ""))==null)
