@@ -2,7 +2,7 @@ package searchengine.processors;
 
 import java.io.IOException;
 import java.util.ArrayList;
-import java.util.HashMap;
+import java.util.List;
 import org.apache.lucene.morphology.LuceneMorphology;
 import org.apache.lucene.morphology.english.EnglishLuceneMorphology;
 import org.apache.lucene.morphology.russian.RussianLuceneMorphology;
@@ -87,24 +87,39 @@ public class WordProcessor {
   public static ArrayList<String> arrayToSentence(String lemma, String[] words){
     ArrayList<String> snippetToReturn = new ArrayList<>();
     for (int i = 0; i < words.length; i++){
-      if(words[i].matches("\\D*") && !words[i].isBlank()){
-        String[] words2 = words[i].split("\\.\\s+|\\,\\s+|\\.\\s*|-+|'|:|\"|\\?|«|»|,");
-        for (int y = 0; y < words2.length; y++){
-          if(words2[y].matches("[а-яА-ЯЁё]+") && !words[y].isBlank()) {
-              if(getDefaultRussianForm(words2[y]).contains(lemma)) {
-                snippetToReturn.add(createSentence(words, i));
-              }
-          }else if(words2[y].matches("[a-zA-Z]+") && !words[y].isBlank()){
-            if(getDefaultEnglishForm(words2[y]).contains(lemma)) {
-              snippetToReturn.add(createSentence(words, i));
-            }
-          }
-        }
-      }else if(!words[i].isBlank() && words[i].matches("[0-9]+") && words[i].matches(lemma)){
-        snippetToReturn.add(createSentence(words, i));
-      }
+      snippetToReturn.addAll(iteratingThroughInitiallySeparatedWords(lemma, words, i));
     }
     return snippetToReturn;
+  }
+
+  private static ArrayList<String> iteratingThroughInitiallySeparatedWords(String lemma,String[] words, int i){
+    ArrayList<String> localsSnippetToReturn = new ArrayList<>();
+    if(words[i].matches("\\D*") && !words[i].isBlank()){
+      String[] words2 = words[i].split("\\.\\s+|\\,\\s+|\\.\\s*|-+|'|:|\"|\\?|«|»|,");
+      for (int y = 0; y < words2.length; y++){
+        ArrayList<String> arguments = new ArrayList<>(List.of(words2[y], lemma));
+        localsSnippetToReturn.addAll(iteratingThroughAdditionallySeparatedWords(arguments, i, words));
+      }
+    }else if(!words[i].isBlank() && words[i].matches("[0-9]+") && words[i].matches(lemma)){
+      localsSnippetToReturn.add(createSentence(words, i));
+    }
+    return localsSnippetToReturn;
+  }
+
+  private static ArrayList<String> iteratingThroughAdditionallySeparatedWords(ArrayList<String> arguments, int i, String[] words){
+    ArrayList<String> localsSnippetToReturn = new ArrayList<>();
+    String separatedWord = arguments.get(0);
+    String lemma = arguments.get(1);
+    if(separatedWord.matches("[а-яА-ЯЁё]+") && !separatedWord.isBlank()) {
+      if(getDefaultRussianForm(separatedWord).contains(lemma)) {
+        localsSnippetToReturn.add(createSentence(words, i));
+      }
+    }else if(separatedWord.matches("[a-zA-Z]+") && !separatedWord.isBlank()){
+      if(getDefaultEnglishForm(separatedWord).contains(lemma)) {
+        localsSnippetToReturn.add(createSentence(words, i));
+      }
+    }
+    return localsSnippetToReturn;
   }
 
   private static String createSentence(String[] words, int i ){
