@@ -12,7 +12,7 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
-import lombok.AllArgsConstructor;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.jsoup.Connection;
 import org.jsoup.Jsoup;
@@ -37,24 +37,17 @@ import searchengine.repositories.PagesRepository;
 import searchengine.repositories.SitesRepository;
 
 @Slf4j
-@AllArgsConstructor
+@RequiredArgsConstructor(onConstructor_ = @Autowired)
 @Service
 public class IndexingService extends RecursiveAction {
 
-  @Autowired
-  public PagesRepository pagesRepository;
-  @Autowired
-  public SitesRepository sitesRepository;
-  @Autowired
-  public IndexRepository indexRepository;
-  @Autowired
-  public LemmaRepository lemmaRepository;
-  @Autowired
-  public SitesList initialConSites;
-  @Autowired
-  public ConnectionProperties connectionProperties;
-  @Autowired
-  PageIndexingService pageIndexingService;
+  private final PagesRepository pagesRepository;
+  private final SitesRepository sitesRepository;
+  private final IndexRepository indexRepository;
+  private final LemmaRepository lemmaRepository;
+  private final SitesList initialConSites;
+  private final ConnectionProperties connectionProperties;
+  private final PageIndexingService pageIndexingService;
   private final ScheduledExecutorService scheduler = Executors.newScheduledThreadPool(1);
   public String userAgent;
   public String referrer;
@@ -83,7 +76,7 @@ public class IndexingService extends RecursiveAction {
   RequestResponceSucceeded requestResponceSucceeded;
   String errorMessage;
 
-  public IndexingService() {}
+//  public IndexingService() {}
 
   public IndexingService(List<String> arguments, List<CrudRepository> repArguments,PageIndexingService pageIndexingService, SitesList initialConSites, ConnectionProperties connectionProperties) {
     this.url = arguments.get(0);

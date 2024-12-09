@@ -9,7 +9,6 @@ import java.util.Optional;
 import lombok.RequiredArgsConstructor;
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import searchengine.dto.statistics.RequestResponceFailed;
 import searchengine.dto.statistics.RequestResponse;
@@ -25,12 +24,9 @@ import searchengine.repositories.PagesRepository;
 @RequiredArgsConstructor
 @Service
 public class SearchService {
-  @Autowired
-  private LemmaRepository lemmaRepository;
-  @Autowired
-  private IndexRepository indexRepository;
-  @Autowired
-  private PagesRepository pagesRepository;
+  private final LemmaRepository lemmaRepository;
+  private final IndexRepository indexRepository;
+  private final PagesRepository pagesRepository;
   private ArrayList<String> separatedWords;
   private Double currentAllowedMaxLemmaFrequencyTotal = (double) 0;
   private HashMap<String, Integer> lemmasWithMaxFrequency;
@@ -43,6 +39,8 @@ public class SearchService {
   ArrayList<String> separateWords;
   List<Thread> subTasks = new ArrayList<>();
 
+
+//  вложенность
   private HashMap<String, Integer> getEachLemmaMaxFrequency(ArrayList<String> separatedWords){
     HashMap<String, Integer> lemmasWithMaxFrequencyToReturn = new HashMap<>();
     for(int i = 0;separatedWords.size()>i;i++){
@@ -67,6 +65,7 @@ public class SearchService {
     }
   }
 
+  //  вложенность
   public ArrayList<String> sentenceToWordsSingleThread(String[] words, int start, int finish){
     for (; start < finish; start++){
       if(WordProcessor.isServiceWord(words[start])){
@@ -81,6 +80,7 @@ public class SearchService {
     return separateWords;
   }
 
+//  длинна
   public ArrayList<String> sentenceToWordsMultiThread(String[] words){
     Thread PageIndexingThread = new Thread()
     {
@@ -126,6 +126,7 @@ public class SearchService {
     return snippetLocal;
   }
 
+//  вложенность
   private ArrayList<SearchResponseItem> finishingSearch(Double frequencyTotalLocal, HashMap<Integer, Object> collectingMap){
     ArrayList<SearchResponseItem> dataToReturn = new ArrayList<>();
     HashMap<String, Integer> lemmasWithMaxFrequencyLocal = (HashMap<String, Integer>) collectingMap.get(1);
@@ -153,6 +154,7 @@ public class SearchService {
     return dataToReturnLocal;
   }
 
+  //  вложенность
   private ArrayList<SearchResponseItem> iteratingThroughLemmasWithPages(HashMap<Integer, Object> collectingMap1, HashMap<Integer, Object> collectingMap){
     ArrayList<SearchResponseItem> dataToReturnLocal = new ArrayList<>();
     HashMap<String, HashMap<String, ArrayList<String>>> lemmasWithPathsAndSnippetsLocal = (HashMap<String, HashMap<String, ArrayList<String>>>) collectingMap.get(3);
@@ -173,6 +175,7 @@ public class SearchService {
     return dataToReturnLocal;
   }
 
+  //  вложенность
   private ArrayList<SearchResponseItem> iteratingThroughPathsAndSnippets(int[] counters, HashMap<Integer, Object> collectingMap1, HashMap<Integer, Object> collectingMap){
     ArrayList<SearchResponseItem> dataToReturnLocal = new ArrayList<>();
     Entry<String, ArrayList<ModelPage>> entry2 = (Entry<String, ArrayList<ModelPage>>) collectingMap1.get(1);
@@ -205,6 +208,7 @@ public class SearchService {
         pageIdsWithRelRelLocal.get(entry2.getValue().get(counters[0]).getId()));
   }
 
+  //  вложенность
   private HashMap<Integer, Integer> calculatePageIdsWithMaxRel(Double maxLemmaFrequency, HashMap<String, Integer> lemmasWithMaxFrequency){
     HashMap<Integer, Integer> mapToReturn = new HashMap<>();
     for(int i = 0; maxLemmaFrequency>=i;i++) {
@@ -237,6 +241,7 @@ public class SearchService {
     return mapToReturn;
   }
 
+  //  вложенность
   private HashMap<String, ArrayList<ModelPage>> mapLemmasToPages(String site, Double maxLemmaFrequencyTotal, HashMap<String, Integer> lemmasWithMaxFrequencyLocal){
     HashMap<String, ArrayList<ModelPage>> lemmasWithPagesToReturn = new HashMap<>();
     int pagesArrayReduction = 0;
@@ -265,6 +270,7 @@ public class SearchService {
     }
   }
 
+  //  вложенность
   private ArrayList<ModelPage> getListOfPages(ArrayList<Integer> pagesIdsLocal, int pagesCounterToIterateLocal, String siteLocal){
     ArrayList<ModelPage> pagesLocal = new ArrayList<>();
     for(int z = 0;pagesCounterToIterateLocal>z;z++){
@@ -371,8 +377,7 @@ public class SearchService {
     separatedWords = sentenceToWords(sentence);
     lemmasWithMaxFrequency = getEachLemmaMaxFrequency(separatedWords);
     if(lemmasWithMaxFrequency.isEmpty()){
-      return new SearchResponseSucceeded(true, 0,
-          new ArrayList<>());
+      return new SearchResponseSucceeded(true, 0, new ArrayList<>());
     }
     currentLowestFrequencyValue = calculateLowestFrequency(lemmasWithMaxFrequency);
     currentAllowedMaxLemmaFrequencyTotal = calculateAllowedMaxLemmaFrequencyTotal(currentLowestFrequencyValue, lemmasWithMaxFrequency.size());
@@ -387,8 +392,7 @@ public class SearchService {
     collectingMap.put(3, lemmasWithPathsAndSnippets);
     collectingMap.put(4, pageIdsWithRelRel);
     data = new ArrayList<>(finishingSearch(currentAllowedMaxLemmaFrequencyTotal, collectingMap));
-    return new SearchResponseSucceeded(true, data.size(),
-        new ArrayList<>(data.subList(calculateOffset(offset), calculateLimit(limit, calculateOffset(offset), data.size()))));
+    return new SearchResponseSucceeded(true, data.size(), new ArrayList<>(data.subList(calculateOffset(offset), calculateLimit(limit, calculateOffset(offset), data.size()))));
   }
 }
 

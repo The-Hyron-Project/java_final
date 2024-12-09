@@ -30,21 +30,15 @@ import searchengine.repositories.PagesRepository;
 import searchengine.repositories.SitesRepository;
 
 @Slf4j
-@RequiredArgsConstructor
+@RequiredArgsConstructor(onConstructor_ = @Autowired)
 @Service
 public class PageIndexingService {
-  @Autowired
-  public PagesRepository pagesRepository;
-  @Autowired
-  public SitesRepository sitesRepository;
-  @Autowired
-  public ConnectionProperties connectionProperties;
-  @Autowired
-  public SitesList initialConSites;
-  @Autowired
-  public LemmaRepository lemmaRepository;
-  @Autowired
-  public IndexRepository indexRepository;
+  private final PagesRepository pagesRepository;
+  private final SitesRepository sitesRepository;
+  private final ConnectionProperties connectionProperties;
+  private final SitesList initialConSites;
+  private final LemmaRepository lemmaRepository;
+  private final IndexRepository indexRepository;
   ModelPage modelPage;
   Connection.Response response = null;
   Document doc2 = null;
@@ -57,7 +51,6 @@ public class PageIndexingService {
   List<Thread> subTasks = new ArrayList<>();
   HashMap<String, Integer> wordsCounter;
   private static final Object mutex = new Object();
-
 
   public PageIndexingService(List<CrudRepository> repArguments, ConnectionProperties connectionProperties, SitesList initialConSites){
     this.sitesRepository = (SitesRepository) repArguments.get(0);
