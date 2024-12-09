@@ -25,48 +25,29 @@ public class StatisticsServiceImpl implements StatisticsService {
 
     private final Random random = new Random();
     private final SitesList sites;
-    int siteId;
-    ModelSite modelSite;
     ZoneId zoneId = ZoneId.systemDefault();
-
-
-    @Autowired
-    public PagesRepository pagesRepository;
-    @Autowired
-    public SitesRepository sitesRepository;
-    @Autowired
-    public LemmaRepository lemmaRepository;
+    private final PagesRepository pagesRepository;
+    private final SitesRepository sitesRepository;
+    private final LemmaRepository lemmaRepository;
 
     @Override
     public StatisticsResponse getStatistics() {
         TotalStatistics total = new TotalStatistics();
         total.setSites(sites.getSites().size());
         total.setIndexing(true);
-
         List<DetailedStatisticsItem> detailed = new ArrayList<>();
         List<Site> sitesList = sites.getSites();
         for(int i = 0; i < sitesList.size(); i++) {
-            Site Site = sitesList.get(i);
-            modelSite = sitesRepository.findByName(Site.getName());
+            Site site = sitesList.get(i);
+            ModelSite modelSite = sitesRepository.findByName(site.getName());
             if(modelSite==null){
             }else{
-            DetailedStatisticsItem item = new DetailedStatisticsItem();
-            item.setName(Site.getName());
-            item.setUrl(Site.getUrl());
-            siteId = sitesRepository.findIdByUrl(Site.getUrl());
-            int pages = pagesRepository.countBySiteId(siteId);
-            int lemmas = lemmaRepository.countLemmasBySiteId(siteId);
-            item.setPages(pages);
-            item.setLemmas(lemmas);
-            item.setStatus(String.valueOf(modelSite.getStatus()));
-            item.setError(modelSite.getLastError());
-            item.setStatusTime(modelSite.getStatusTime().atZone(zoneId).toInstant().toEpochMilli());
-            total.setPages(total.getPages() + pages);
-            total.setLemmas(total.getLemmas() + lemmas);
+            DetailedStatisticsItem item = creatingDetailedStatisticsItem(site, modelSite);
+            total.setPages(total.getPages() + item.getPages());
+            total.setLemmas(total.getLemmas() + item.getLemmas());
             detailed.add(item);
             }
         }
-
         StatisticsResponse response = new StatisticsResponse();
         StatisticsData data = new StatisticsData();
         data.setTotal(total);
@@ -74,5 +55,20 @@ public class StatisticsServiceImpl implements StatisticsService {
         response.setStatistics(data);
         response.setResult(true);
         return response;
+    }
+
+    private DetailedStatisticsItem creatingDetailedStatisticsItem(Site site, ModelSite modelSite){
+        DetailedStatisticsItem item = new DetailedStatisticsItem();
+        item.setName(site.getName());
+        item.setUrl(site.getUrl());
+        int siteId = sitesRepository.findIdByUrl(site.getUrl());
+        int pages = pagesRepository.countBySiteId(siteId);
+        int lemmas = lemmaRepository.countLemmasBySiteId(siteId);
+        item.setPages(pages);
+        item.setLemmas(lemmas);
+        item.setStatus(String.valueOf(modelSite.getStatus()));
+        item.setError(modelSite.getLastError());
+        item.setStatusTime(modelSite.getStatusTime().atZone(zoneId).toInstant().toEpochMilli());
+        return item;
     }
 }
