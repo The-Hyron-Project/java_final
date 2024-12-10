@@ -27,11 +27,11 @@ public class WordProcessor {
   }
 
 
-  public static boolean isServiceWord(String wordToCheck){
+  public static boolean isNotServiceWord(String wordToCheck){
     if(wordToCheck.matches("[а-яА-Я]+") && !wordToCheck.isBlank() ){
-      return isRussianServiceWord(wordToCheck);
+      return isNotRussianServiceWord(wordToCheck);
     }else if(wordToCheck.matches("[a-zA-Z]+") && !wordToCheck.isBlank() ){
-      return isEnglishServiceWord(wordToCheck);
+      return isNotEnglishServiceWord(wordToCheck);
     } else if (wordToCheck.matches("[0-9]+") && !wordToCheck.isBlank()) {
       return true;
     }else{
@@ -39,14 +39,14 @@ public class WordProcessor {
     }
   }
 
-  private static boolean isEnglishServiceWord(String englishWordToCheck){
+  private static boolean isNotEnglishServiceWord(String englishWordToCheck){
     return !simpleEnglishMorphInfo(englishWordToCheck).contains(EnglishServiceWords.INT.toString())
         && !simpleEnglishMorphInfo(englishWordToCheck).contains(EnglishServiceWords.ARTICLE.toString())
         && !simpleEnglishMorphInfo(englishWordToCheck).contains(EnglishServiceWords.CONJ.toString())
         && !simpleEnglishMorphInfo(englishWordToCheck).contains(EnglishServiceWords.PREP.toString());
   }
 
-  private static boolean isRussianServiceWord(String russianWordToCheck){
+  private static boolean isNotRussianServiceWord(String russianWordToCheck){
     return !simpleRussianMorphInfo(russianWordToCheck).contains(RussianServiceWords.СОЮЗ.toString())
         && !simpleRussianMorphInfo(russianWordToCheck).contains(RussianServiceWords.МЕЖД.toString())
         && !simpleRussianMorphInfo(russianWordToCheck).contains(RussianServiceWords.ЧАСТ.toString())

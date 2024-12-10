@@ -138,7 +138,7 @@ public class PageIndexingService {
 
   private HashMap<String, Integer> sentenceToWordsSingleThread(String[] words, int start, int finish) {
     for (; start < finish; start++) {
-      if (WordProcessor.isServiceWord(words[start])) {
+      if (WordProcessor.isNotServiceWord(words[start])) {
         savingDefaultForm(words[start]);
       }
     }

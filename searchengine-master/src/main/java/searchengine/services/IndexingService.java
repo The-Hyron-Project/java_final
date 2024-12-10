@@ -7,7 +7,6 @@ import java.util.List;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.RecursiveAction;
-
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
@@ -24,6 +23,7 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.data.repository.CrudRepository;
 import org.springframework.stereotype.Service;
 import searchengine.config.ConnectionProperties;
+import searchengine.config.Site;
 import searchengine.config.SitesList;
 import searchengine.dto.statistics.RequestResponceFailed;
 import searchengine.dto.statistics.RequestResponceSucceeded;
@@ -49,36 +49,34 @@ public class IndexingService extends RecursiveAction {
   private final ConnectionProperties connectionProperties;
   private final PageIndexingService pageIndexingService;
   private final ScheduledExecutorService scheduler = Executors.newScheduledThreadPool(1);
-  public String userAgent;
-  public String referrer;
-  public String timeout;
-  int level;
-  static int NUMBEROFLINES = 0;
-  static int DEPTH = 0;
-  String url = "";
-  String name = "";
-  String baseUrl = "";
-  Document doc2 = null;
-  Document doc3 = null;
-  static ArrayList<String> uncheckedCheckerLinks;
-  List<IndexingService> subTasks = new ArrayList<>();
-  List<IndexingService> subFirstTasks = new ArrayList<>();;
-  int siteId;
-  public static AtomicBoolean isStarted = new AtomicBoolean(false);
-  Connection.Response response = null;
-  public Boolean isFirstRun = true;
-  public static volatile AtomicBoolean isIndexing = new AtomicBoolean(false);
-  static List<String> siteNames = new ArrayList<>();
-  public static ForkJoinPool forkJoinPool = new ForkJoinPool(Runtime.getRuntime().availableProcessors());
-  public List<String> arguments;
-  public List<CrudRepository> repArguments;
-  RequestResponceFailed requestResponseFailed;
-  RequestResponceSucceeded requestResponceSucceeded;
-  String errorMessage;
+  private String userAgent;
+  private String referrer;
+  private String timeout;
+  private int level;
+  private int NUMBEROFLINES = 0;
+  private int DEPTH = 0;
+  private String url = "";
+  private String name = "";
+  private String baseUrl = "";
+  private Document doc2 = null;
+  private Document doc3 = null;
+  private static ArrayList<String> uncheckedCheckerLinks;
+  private List<IndexingService> subTasks = new ArrayList<>();
+  private List<IndexingService> subFirstTasks = new ArrayList<>();;
+  private int siteId;
+  private static AtomicBoolean isStarted = new AtomicBoolean(false);
+  private Connection.Response response = null;
+  private Boolean isFirstRun = true;
+  private static volatile AtomicBoolean isIndexing = new AtomicBoolean(false);
+  private static List<String> siteNames = new ArrayList<>();
+  private static ForkJoinPool forkJoinPool = new ForkJoinPool(Runtime.getRuntime().availableProcessors());
+  private List<String> arguments;
+  private List<CrudRepository> repArguments;
+  private RequestResponceFailed requestResponseFailed;
+  private RequestResponceSucceeded requestResponceSucceeded;
+  private String errorMessage;
 
-//  public IndexingService() {}
-
-  public IndexingService(List<String> arguments, List<CrudRepository> repArguments,PageIndexingService pageIndexingService, SitesList initialConSites, ConnectionProperties connectionProperties) {
+  private IndexingService(List<String> arguments, List<CrudRepository> repArguments,PageIndexingService pageIndexingService, SitesList initialConSites, ConnectionProperties connectionProperties) {
     this.url = arguments.get(0);
     this.baseUrl = arguments.get(1);
     this.siteId = Integer.parseInt(arguments.get(2));
@@ -99,39 +97,51 @@ public class IndexingService extends RecursiveAction {
   }
 
   @Bean
-  public void flagChecker(){
+  private void flagChecker(){
     Runnable collection = () -> {
       if(isIndexing.get() && !isStarted.get()){
-        isStarted.set(true);
-        if(isStarted.get()){
-          startIndexing();
-        }
-        if(isStarted.get()) {
-          for(int i = 0;siteNames.size()>i;i++){
-            ModelSite site = sitesRepository.findByName(siteNames.get(i));
-            if(site.getStatus()!=Status.FAILED){
-              site.setStatus(Status.INDEXED);
-              sitesRepository.save(site);
-            }
-          }
-        }
-        if(!isIndexing.get()){
-          for (IndexingService task : subTasks) {
-            task.cancel(true);
-          }
-          for (IndexingService task : subFirstTasks) {
-            task.cancel(true);
-          }
-        }
-        if(isIndexing.get()){
-          log.info("Indexing is finished");
-        }
-        isIndexing.set(false);
-        isStarted.set(false);
+        startAction();
       }
     };
     ScheduledFuture<?> collectionHandle =
         scheduler.scheduleAtFixedRate(collection, 0, 5, TimeUnit.SECONDS);
+  }
+
+  private void startAction(){
+    isStarted.set(true);
+    if(isStarted.get()){
+      startIndexing();
+    }
+    if(isStarted.get()) {
+      setIndexedStatus();
+    }
+    if(!isIndexing.get()){
+      killThreads();
+    }
+    if(isIndexing.get()){
+      log.info("Indexing is finished");
+    }
+    isIndexing.set(false);
+    isStarted.set(false);
+  }
+
+  private void setIndexedStatus(){
+    for(int i = 0;siteNames.size()>i;i++){
+      ModelSite site = sitesRepository.findByName(siteNames.get(i));
+      if(site.getStatus()!=Status.FAILED){
+        site.setStatus(Status.INDEXED);
+        sitesRepository.save(site);
+      }
+    }
+  }
+
+  private void killThreads(){
+    for (IndexingService task : subTasks) {
+      task.cancel(true);
+    }
+    for (IndexingService task : subFirstTasks) {
+      task.cancel(true);
+    }
   }
 
   public RequestResponse getIndexResult() {
@@ -143,39 +153,56 @@ public class IndexingService extends RecursiveAction {
     }
   }
 
-  public void startIndexing(){
+  private void startIndexing(){
     log.info("Indexing is started");
     if(isFirstRun){
-      for(int i = 0; i< initialConSites.getSites().size(); i++){
-        siteNames.add(initialConSites.getSites().get(i).getName());
-        try{
-          int siteIdToDelete = sitesRepository.findByName(initialConSites.getSites().get(i).getName()).getId();
-          List<Integer> pagesIds = pagesRepository.findAllPagesIdsBySiteId(siteIdToDelete);
-          for(int id : pagesIds){
-            indexRepository.deleteIndexByPageId(id);
-          }
-          lemmaRepository.deleteLemmaBySiteId(siteIdToDelete);
-          pagesRepository.deleteBySiteId(siteIdToDelete);
-          sitesRepository.deleteById(siteIdToDelete);
-        } catch (Exception e) {
-          log.trace("Your DB may be empty");
-          log.trace(e.getMessage());
-        }
-        uncheckedCheckerLinks = new ArrayList<>();
-        arguments = new ArrayList<>(List.of(initialConSites.getSites().get(i).getUrl(), "",String.valueOf(0), initialConSites.getSites().get(i).getName(), "", String.valueOf(true), String.valueOf(setLevel(url)), connectionProperties.getUserAgent(), connectionProperties.getReferrer(), connectionProperties.getTimeout()));
-        repArguments = new ArrayList<>(List.of(sitesRepository, pagesRepository, indexRepository, lemmaRepository));
-        IndexingService task = new IndexingService(arguments, repArguments, pageIndexingService, initialConSites, connectionProperties);
-        if(isIndexing.get()) {
-          subFirstTasks.add(task);
-        }
-        if(isIndexing.get()) {
-          forkJoinPool.execute(task);
-        }
-      }
-      for (IndexingService task : subFirstTasks) {
-        if(isIndexing.get()){
-          task.join();
-        }
+      performingFirstRun();
+    }
+  }
+
+  private void performingFirstRun(){
+    for(int i = 0; i< initialConSites.getSites().size(); i++){
+      firstRunPerSite(initialConSites.getSites().get(i));
+    }
+    joiningSubFirstTasks();
+  }
+
+  private void firstRunPerSite(Site site){
+    siteNames.add(site.getName());
+    try{
+      int siteIdToDelete = sitesRepository.findByName(site.getName()).getId();
+      List<Integer> pagesIds = pagesRepository.findAllPagesIdsBySiteId(siteIdToDelete);
+      deletingOldData(siteIdToDelete, pagesIds);
+    } catch (Exception e) {
+      log.trace("Your DB may be empty");
+      log.trace(e.getMessage());
+      throw new RuntimeException(e);
+    }
+    uncheckedCheckerLinks = new ArrayList<>();
+    arguments = new ArrayList<>(List.of(site.getUrl(), "",String.valueOf(0), site.getName(), "", String.valueOf(true), String.valueOf(setLevel(url)), connectionProperties.getUserAgent(), connectionProperties.getReferrer(), connectionProperties.getTimeout()));
+    repArguments = new ArrayList<>(List.of(sitesRepository, pagesRepository, indexRepository, lemmaRepository));
+    IndexingService task = new IndexingService(arguments, repArguments, pageIndexingService, initialConSites, connectionProperties);
+    if(isIndexing.get()) {
+      subFirstTasks.add(task);
+    }
+    if(isIndexing.get()) {
+      forkJoinPool.execute(task);
+    }
+  }
+
+  private void deletingOldData(int siteIdToDelete, List<Integer> pagesIds){
+    for(int id : pagesIds){
+      indexRepository.deleteIndexByPageId(id);
+    }
+    lemmaRepository.deleteLemmaBySiteId(siteIdToDelete);
+    pagesRepository.deleteBySiteId(siteIdToDelete);
+    sitesRepository.deleteById(siteIdToDelete);
+  }
+
+  private void joiningSubFirstTasks(){
+    for (IndexingService task : subFirstTasks) {
+      if(isIndexing.get()){
+        task.join();
       }
     }
   }
@@ -185,42 +212,46 @@ public class IndexingService extends RecursiveAction {
     findLinks();
   }
 
-  public void findLinks() {
+  private void findLinks() {
     if(!url.isEmpty() && isIndexing.get()){
       ArrayList<Document> availableCheckedLinks = new ArrayList<>(isAvailable(url));
       ArrayList<String> validLinks = new ArrayList<>(isCorrectLink(availableCheckedLinks));
-      savingLinks(validLinks);
+      processingLinks(validLinks);
     }
   }
 
   private ArrayList<Document> isAvailable(String url) {
     if ((pagesRepository.countBySiteId(siteId) < NUMBEROFLINES || NUMBEROFLINES == 0) && (level < DEPTH || DEPTH == 0)) {
-      ArrayList<Document> AvailableLinks = new ArrayList<>();
-      if (pagesRepository.findByPath(url)==null) {
-        try {
-          Connection.Response responseLocal = Connect(url);
-          if(responseLocal!=null){
-            doc2 = responseLocal.parse();
-            AvailableLinks.add(doc2);
-          }
-        } catch (IOException e) {
-          log.trace("Site is not available");
-          log.trace(e.getMessage());
-        }
-        SaveSite();
-        SavePage();
-        uncheckedCheckerLinks.remove(url);
-        return AvailableLinks;
-      } else {
-        uncheckedCheckerLinks.remove(url);
-        return AvailableLinks;
-      }
+      return checkingLink(url);
     }else{
       return new ArrayList<>();
     }
   }
 
-  public Connection.Response Connect (String url){
+  private ArrayList<Document> checkingLink(String url){
+    ArrayList<Document> AvailableLinks = new ArrayList<>();
+    if (pagesRepository.findByPath(url)==null) {
+      try {
+        Connection.Response responseLocal = Connect(url);
+        if(responseLocal!=null){
+          doc2 = responseLocal.parse();
+          AvailableLinks.add(doc2);
+        }
+      } catch (IOException e) {
+        log.trace("Site is not available");
+        log.trace(e.getMessage());
+      }
+      SaveSite();
+      SavePage();
+      uncheckedCheckerLinks.remove(url);
+      return AvailableLinks;
+    } else {
+      uncheckedCheckerLinks.remove(url);
+      return AvailableLinks;
+    }
+  }
+
+  private Connection.Response Connect (String url){
     try {
       Thread.sleep(20000);
     } catch (InterruptedException e) {
@@ -242,7 +273,7 @@ public class IndexingService extends RecursiveAction {
     return response;
   }
 
-  public void SaveSite(){
+  private void SaveSite(){
     if(isFirstRun){
       ModelSite modelSite = new ModelSite();
       modelSite.setUrl(url);
@@ -262,9 +293,8 @@ public class IndexingService extends RecursiveAction {
     }
   }
 
-  public void SavePage() {
-    if ((pagesRepository.countBySiteId(siteId) < NUMBEROFLINES || NUMBEROFLINES == 0) && (level < DEPTH || DEPTH == 0)
-        && response != null) {
+  private void SavePage() {
+    if ((pagesRepository.countBySiteId(siteId) < NUMBEROFLINES || NUMBEROFLINES == 0) && (level < DEPTH || DEPTH == 0) && response != null) {
       ModelPage modelPage = new ModelPage();
       modelPage.setModelSite(sitesRepository.findById(siteId).get());
       modelPage.setCode(response.statusCode());
@@ -275,33 +305,43 @@ public class IndexingService extends RecursiveAction {
         modelPage.setPath(url.replace(baseUrl, ""));
       }
       pagesRepository.save(modelPage);
-      if (!String.valueOf(response.statusCode()).matches("[4|5].*") && !modelPage.getContent().isBlank()) {
-        List<CrudRepository> repArguments = new ArrayList<>(List.of(sitesRepository, pagesRepository, indexRepository, lemmaRepository));
-        PageIndexingService pageIndexingService2 = new PageIndexingService(repArguments, connectionProperties, initialConSites);
-        if (isFirstRun) {
-          pageIndexingService2.startPageIndexing(url + "/");
-        } else {
-          pageIndexingService2.startPageIndexing(url);
-        }
+      startPageIndexing(modelPage);
+    }
+  }
+
+  private void startPageIndexing(ModelPage modelPage){
+    if (!String.valueOf(response.statusCode()).matches("[4|5].*") && !modelPage.getContent().isBlank()) {
+      List<CrudRepository> repArguments = new ArrayList<>(List.of(sitesRepository, pagesRepository, indexRepository, lemmaRepository));
+      PageIndexingService pageIndexingService2 = new PageIndexingService(repArguments, connectionProperties, initialConSites);
+      if (isFirstRun) {
+        pageIndexingService2.startPageIndexing(url + "/");
+      } else {
+        pageIndexingService2.startPageIndexing(url);
       }
     }
   }
 
-  private ArrayList<String> isCorrectLink(ArrayList DocumentsToCheck) {
-    ArrayList<String> Links = new ArrayList<>();
+  private ArrayList<String> isCorrectLink(ArrayList<Document> DocumentsToCheck) {
+    ArrayList<String> links = new ArrayList<>();
     for (int i = 0; i < DocumentsToCheck.size(); i++) {
-      doc3 = (Document) DocumentsToCheck.get(i);
-      if (doc3 != null) {
-        Elements subLinksHead = doc3.select("a");
-        for (Element subLink : subLinksHead) {
-          LinkCleaner(Links, subLink);
-        }
-      }
+      links.addAll(collectingLinks(DocumentsToCheck.get(i)));
     }
-    return Links;
+    return links;
   }
 
-  public void LinkCleaner(ArrayList<String> Links, Element subLink){
+  private ArrayList<String> collectingLinks(Document receivedDocument){
+    ArrayList<String> linksLocal = new ArrayList<>();
+    doc3 = receivedDocument;
+    if (doc3 != null) {
+      Elements subLinksHead = doc3.select("a");
+      for (Element subLink : subLinksHead) {
+        LinkCleaner(linksLocal, subLink);
+      }
+    }
+    return linksLocal;
+  }
+
+  private void LinkCleaner(ArrayList<String> Links, Element subLink){
     if (
         String.valueOf(subLink).matches(".*[\"']" + baseUrl + "/.*[\"']((.|\\n)*)")
             && !String.valueOf(subLink).matches(".*[\"']" + baseUrl + "/.*[.pdf][\"'].*")
@@ -324,29 +364,36 @@ public class IndexingService extends RecursiveAction {
     }
   }
 
-  private void savingLinks(ArrayList linksToSave) {
+  private void processingLinks(ArrayList<String> linksToSave) {
     if((isIndexing.get() && pagesRepository.countBySiteId(siteId) < NUMBEROFLINES || NUMBEROFLINES == 0)){
       for (int i = 0; i < linksToSave.size(); i++) {
-        if (!uncheckedCheckerLinks.contains(linksToSave.get(i))
-            && pagesRepository.findByPath(linksToSave.get(i).toString().replace(baseUrl, ""))==null)
-        {
-          arguments = new ArrayList<>(List.of((String) linksToSave.get(i), baseUrl, String.valueOf(siteId), "", "", String.valueOf(false), String.valueOf(setLevel(url)), userAgent, referrer, timeout));
-          repArguments = new ArrayList<>(List.of(sitesRepository, pagesRepository, indexRepository, lemmaRepository));
-          IndexingService task = new IndexingService(arguments, repArguments, pageIndexingService, initialConSites, connectionProperties);
-          if(isIndexing.get()) {
-            subTasks.add(task);
-          }
-          if(isIndexing.get()) {
-            forkJoinPool.execute(task);
-          }
-          uncheckedCheckerLinks.add((String) linksToSave.get(i));
-        } else {
-        }
+        generatingThread(linksToSave.get(i));
       }
-      for (IndexingService task : subTasks) {
-        if(isIndexing.get()){
-          task.join();
-        }
+      joiningTasks();
+    }
+  }
+
+  private void generatingThread(String link){
+    if (!uncheckedCheckerLinks.contains(link)
+        && pagesRepository.findByPath(link.toString().replace(baseUrl, ""))==null)
+    {
+      arguments = new ArrayList<>(List.of(link, baseUrl, String.valueOf(siteId), "", "", String.valueOf(false), String.valueOf(setLevel(url)), userAgent, referrer, timeout));
+      repArguments = new ArrayList<>(List.of(sitesRepository, pagesRepository, indexRepository, lemmaRepository));
+      IndexingService task = new IndexingService(arguments, repArguments, pageIndexingService, initialConSites, connectionProperties);
+      if(isIndexing.get()) {
+        subTasks.add(task);
+      }
+      if(isIndexing.get()) {
+        forkJoinPool.execute(task);
+      }
+      uncheckedCheckerLinks.add(link);
+    }
+  }
+
+  private void joiningTasks(){
+    for (IndexingService task : subTasks) {
+      if(isIndexing.get()){
+        task.join();
       }
     }
   }
