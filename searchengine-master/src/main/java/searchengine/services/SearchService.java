@@ -44,12 +44,12 @@ public class SearchService {
   private HashMap<String, Integer> getEachLemmaMaxFrequency(ArrayList<String> separatedWords){
     HashMap<String, Integer> lemmasWithMaxFrequencyToReturn = new HashMap<>();
     for(int i = 0;separatedWords.size()>i;i++){
-      lemmasWithMaxFrequencyToReturn.putAll(gettingLemmaMaxFrequency(separatedWords.get(i)));
+      lemmasWithMaxFrequencyToReturn.putAll(getLemmaMaxFrequency(separatedWords.get(i)));
     }
       return lemmasWithMaxFrequencyToReturn;
   }
 
-  private HashMap<String, Integer> gettingLemmaMaxFrequency(String word){
+  private HashMap<String, Integer> getLemmaMaxFrequency(String word){
     HashMap<String, Integer> localMapToReturn = new HashMap<>();
     if(lemmaRepository.findLemmaTotalFrequencyByLemma(word)!=null){
       List<Integer> numsToSum = lemmaRepository.findLemmaTotalFrequencyByLemma(word);
@@ -74,13 +74,13 @@ public class SearchService {
   private ArrayList<String> sentenceToWordsSingleThread(String[] words, int start, int finish){
     for (; start < finish; start++){
       if(WordProcessor.isNotServiceWord(words[start])){
-        gatheringWordDefaultForms(words, start);
+        gatherWordDefaultForms(words, start);
       }
     }
     return separateWords;
   }
 
-  private void gatheringWordDefaultForms(String[] words, int start){
+  private void gatherWordDefaultForms(String[] words, int start){
     String wordDefaultForm = WordProcessor.getDefaultForm(words[start]);
     if(!wordDefaultForm.isBlank()){
       if(!separateWords.contains(wordDefaultForm)){
@@ -90,14 +90,14 @@ public class SearchService {
   }
 
   public ArrayList<String> sentenceToWordsMultiThread(String[] words){
-    creatingThreads(words, 0, words.length/3);
-    creatingThreads(words, words.length/3, words.length/3*2);
-    creatingThreads(words, words.length/3*2, words.length);
-    joiningThreads();
+    createThreads(words, 0, words.length/3);
+    createThreads(words, words.length/3, words.length/3*2);
+    createThreads(words, words.length/3*2, words.length);
+    joinThreads();
     return separateWords;
   }
 
-  private void creatingThreads(String[] words, int start, int finish){
+  private void createThreads(String[] words, int start, int finish){
     Thread PageIndexingThread = new Thread()
     {
       public void run()
@@ -109,7 +109,7 @@ public class SearchService {
     PageIndexingThread.start();
   }
 
-  private void joiningThreads(){
+  private void joinThreads(){
     for (Thread task : subTasks) {
       try {
         task.join();
@@ -125,26 +125,26 @@ public class SearchService {
     return snippetLocal;
   }
 
-  private ArrayList<SearchResponseItem> finishingSearch(Double frequencyTotalLocal, HashMap<Integer, Object> collectingMap){
+  private ArrayList<SearchResponseItem> finishSearch(Double frequencyTotalLocal, HashMap<Integer, Object> collectingMap){
     ArrayList<SearchResponseItem> dataToReturn = new ArrayList<>();
     HashMap<String, Integer> lemmasWithMaxFrequencyLocal = (HashMap<String, Integer>) collectingMap.get(1);
     for(int i = 0; frequencyTotalLocal>=i;i++){
-      dataToReturn.addAll(iteratingThroughFrequencyTotal(i,lemmasWithMaxFrequencyLocal, collectingMap));
+      dataToReturn.addAll(iterateThroughFrequencyTotal(i,lemmasWithMaxFrequencyLocal, collectingMap));
     }
     return dataToReturn;
   }
 
-  private ArrayList<SearchResponseItem> iteratingThroughFrequencyTotal(int i, HashMap<String, Integer> lemmasWithMaxFrequencyLocal, HashMap<Integer, Object> collectingMap){
+  private ArrayList<SearchResponseItem> iterateThroughFrequencyTotal(int i, HashMap<String, Integer> lemmasWithMaxFrequencyLocal, HashMap<Integer, Object> collectingMap){
     ArrayList<SearchResponseItem> listReturn = new ArrayList<>();
     for(Entry<String, Integer> entry : lemmasWithMaxFrequencyLocal.entrySet()) {
       if(entry.getValue() == i){
-        listReturn.addAll(iteratingThroughLemmasWithMaxFrequency(entry, collectingMap));
+        listReturn.addAll(iterateThroughLemmasWithMaxFrequency(entry, collectingMap));
       }
     }
     return listReturn;
   }
 
-  private ArrayList<SearchResponseItem> iteratingThroughLemmasWithMaxFrequency(Entry<String, Integer> entry, HashMap<Integer, Object> collectingMap){
+  private ArrayList<SearchResponseItem> iterateThroughLemmasWithMaxFrequency(Entry<String, Integer> entry, HashMap<Integer, Object> collectingMap){
     ArrayList<SearchResponseItem> dataToReturnLocal = new ArrayList<>();
     HashMap<String, ArrayList<ModelPage>> lemmasWithPagesLocal = (HashMap<String, ArrayList<ModelPage>>) collectingMap.get(2);
     for(Entry<String, ArrayList<ModelPage>> entry2 : lemmasWithPagesLocal.entrySet()) {
@@ -152,22 +152,23 @@ public class SearchService {
         HashMap<Integer, Object> collectingMapLocalLemmasFrequency = new HashMap<>();
         collectingMapLocalLemmasFrequency.put(1, entry);
         collectingMapLocalLemmasFrequency.put(2, entry2);
-        dataToReturnLocal.addAll(iteratingThroughLemmasWithPages(collectingMapLocalLemmasFrequency, collectingMap));
+        dataToReturnLocal.addAll(
+            iterateThroughLemmasWithPages(collectingMapLocalLemmasFrequency, collectingMap));
       }
     }
     return dataToReturnLocal;
   }
 
-  private ArrayList<SearchResponseItem> iteratingThroughLemmasWithPages(HashMap<Integer, Object> collectingMap1, HashMap<Integer, Object> collectingMap){
+  private ArrayList<SearchResponseItem> iterateThroughLemmasWithPages(HashMap<Integer, Object> collectingMap1, HashMap<Integer, Object> collectingMap){
     ArrayList<SearchResponseItem> dataToReturnLocal = new ArrayList<>();
     Entry<String, ArrayList<ModelPage>> entry2 = (Entry<String, ArrayList<ModelPage>>) collectingMap1.get(2);
-    for(int t=0; entry2.getValue().size()>t;t++){
-      dataToReturnLocal.addAll(iteratingThroughEntry3(t, collectingMap1, collectingMap));
+    for(int t = 0; entry2.getValue().size() > t; t++){
+      dataToReturnLocal.addAll(iterateThroughEntry3(t, collectingMap1, collectingMap));
     }
     return dataToReturnLocal;
   }
 
-  private ArrayList<SearchResponseItem> iteratingThroughEntry3(int t, HashMap<Integer, Object> collectingMap1, HashMap<Integer, Object> collectingMap){
+  private ArrayList<SearchResponseItem> iterateThroughEntry3(int t, HashMap<Integer, Object> collectingMap1, HashMap<Integer, Object> collectingMap){
     HashMap<String, HashMap<String, ArrayList<String>>> lemmasWithPathsAndSnippetsLocal = (HashMap<String, HashMap<String, ArrayList<String>>>) collectingMap.get(3);
     Entry<String, Integer> entry = (Entry<String, Integer>) collectingMap1.get(1);
     ArrayList<SearchResponseItem> dataToReturnLocal = new ArrayList<>();
@@ -179,14 +180,15 @@ public class SearchService {
         HashMap<Integer, Object> collectingMapLemmasWithPages = new HashMap<>();
         collectingMapLemmasWithPages.put(1, entry2);
         collectingMapLemmasWithPages.put(2, entry3);
-        dataToReturnLocal.addAll(iteratingThroughPathsAndSnippets(counters, collectingMapLemmasWithPages, collectingMap));
+        dataToReturnLocal.addAll(
+            iterateThroughPathsAndSnippets(counters, collectingMapLemmasWithPages, collectingMap));
       }
     }
     return dataToReturnLocal;
 
   }
 
-  private ArrayList<SearchResponseItem> iteratingThroughPathsAndSnippets(int[] counters, HashMap<Integer, Object> collectingMap1, HashMap<Integer, Object> collectingMap){
+  private ArrayList<SearchResponseItem> iterateThroughPathsAndSnippets(int[] counters, HashMap<Integer, Object> collectingMap1, HashMap<Integer, Object> collectingMap){
     ArrayList<SearchResponseItem> dataToReturnLocal = new ArrayList<>();
     Entry<String, ArrayList<ModelPage>> entry2 = (Entry<String, ArrayList<ModelPage>>) collectingMap1.get(1);
     Entry<String, HashMap<String, ArrayList<String>>> entry3 = (Entry<String, HashMap<String, ArrayList<String>>>) collectingMap1.get(2);
@@ -195,13 +197,13 @@ public class SearchService {
     for(Entry<String, ArrayList<String>> entry4 : entry3.getValue().entrySet()) {
       if(Objects.equals(entry4.getKey(), entry2.getValue().get(counters[0]).getModelSite().getUrl() + entry2.getValue().get(counters[0]).getPath())){
         collectingArgs.add(entry4);
-        dataToReturnLocal.addAll(iteratingThroughEntry4(counters, collectingMap, collectingArgs));
+        dataToReturnLocal.addAll(iterateThroughEntry4(counters, collectingMap, collectingArgs));
       }
     }
     return dataToReturnLocal;
   }
 
-  private ArrayList<SearchResponseItem> iteratingThroughEntry4(int[] counters, HashMap<Integer, Object> collectingMap, ArrayList<Object> collectingArgs){
+  private ArrayList<SearchResponseItem> iterateThroughEntry4(int[] counters, HashMap<Integer, Object> collectingMap, ArrayList<Object> collectingArgs){
     ArrayList<SearchResponseItem> dataToReturnLocal = new ArrayList<>();
     Entry<String, ArrayList<ModelPage>> entry2 = (Entry<String, ArrayList<ModelPage>>) collectingArgs.get(0);
     Entry<String, ArrayList<String>> entry4 = (Entry<String, ArrayList<String>>) collectingArgs.get(1);
@@ -211,13 +213,13 @@ public class SearchService {
       HashMap<Integer, Object> collectingMapPathsAndSnippets = new HashMap<>();
       collectingMapPathsAndSnippets.put(1, entry2);
       collectingMapPathsAndSnippets.put(2, entry4);
-      dataToReturnLocal.add(formingResponseItem(counters, collectingMapPathsAndSnippets, collectingMap));
+      dataToReturnLocal.add(formResponseItem(counters, collectingMapPathsAndSnippets, collectingMap));
       }
     }
     return dataToReturnLocal;
   }
 
-  private SearchResponseItem formingResponseItem(int[] counters, HashMap<Integer, Object> collectingMapPathsAndSnippets, HashMap<Integer, Object> collectingMap){
+  private SearchResponseItem formResponseItem(int[] counters, HashMap<Integer, Object> collectingMapPathsAndSnippets, HashMap<Integer, Object> collectingMap){
     Entry<String, ArrayList<ModelPage>> entry2 = (Entry<String, ArrayList<ModelPage>>) collectingMapPathsAndSnippets.get(1);
     Entry<String, ArrayList<String>> entry4 = (Entry<String, ArrayList<String>>) collectingMapPathsAndSnippets.get(2);
     ModelSite modelSite1 = entry2.getValue().get(counters[0]).getModelSite();
@@ -234,12 +236,12 @@ public class SearchService {
   private HashMap<Integer, Integer> calculatePageIdsWithMaxRel(Double maxLemmaFrequency, HashMap<String, Integer> lemmasWithMaxFrequency) {
     HashMap<Integer, Integer> mapToReturn = new HashMap<>();
     for (int i = 0; maxLemmaFrequency >= i; i++) {
-      mapToReturn.putAll(collectingPageIdsWithMaxRel(i));
+      mapToReturn.putAll(collectPageIdsWithMaxRel(i));
     }
     return mapToReturn;
   }
 
-  private HashMap<Integer, Integer> collectingPageIdsWithMaxRel(int i){
+  private HashMap<Integer, Integer> collectPageIdsWithMaxRel(int i){
     HashMap<Integer, Integer> mapLocal = new HashMap<>();
     for (Entry<String, Integer> entry : lemmasWithMaxFrequency.entrySet()) {
       if (entry.getValue() == i) {
@@ -272,12 +274,12 @@ public class SearchService {
   private HashMap<String, ArrayList<ModelPage>> mapLemmasToPages(String site, Double maxLemmaFrequencyTotal, HashMap<String, Integer> lemmasWithMaxFrequencyLocal){
     HashMap<String, ArrayList<ModelPage>> lemmasWithPagesToReturn = new HashMap<>();
     for(int i = 0; maxLemmaFrequencyTotal>=i;i++){
-      lemmasWithPagesToReturn.putAll(collectingLemmasAndPages(site, i, lemmasWithMaxFrequencyLocal));
+      lemmasWithPagesToReturn.putAll(collectLemmasAndPages(site, i, lemmasWithMaxFrequencyLocal));
     }
     return lemmasWithPagesToReturn;
   }
 
-  private HashMap<String, ArrayList<ModelPage>> collectingLemmasAndPages(String site, int i, HashMap<String, Integer> lemmasWithMaxFrequencyLocal){
+  private HashMap<String, ArrayList<ModelPage>> collectLemmasAndPages(String site, int i, HashMap<String, Integer> lemmasWithMaxFrequencyLocal){
     HashMap<String, ArrayList<ModelPage>> mapToReturn = new HashMap<>();
     for(Entry<String, Integer> entry : lemmasWithMaxFrequencyLocal.entrySet()) {
       if(entry.getValue() == i){
@@ -294,8 +296,8 @@ public class SearchService {
   }
 
   private int calculatePagesCounterChange(int pagesCounterLocal, int size){
-    if(pagesCounterLocal-1<size){
-      return pagesCounterLocal-1;
+    if(pagesCounterLocal>=size){
+      return size-1;
     }else{
       return size;
     }
@@ -304,12 +306,12 @@ public class SearchService {
   private ArrayList<ModelPage> getListOfPages(ArrayList<Integer> pagesIdsLocal, int pagesCounterToIterateLocal, String siteLocal){
     ArrayList<ModelPage> pagesLocal = new ArrayList<>();
     for(int z = 0;pagesCounterToIterateLocal>z;z++){
-      pagesLocal.addAll(collectingPages(siteLocal, pagesIdsLocal, z));
+      pagesLocal.addAll(collectPages(siteLocal, pagesIdsLocal, z));
     }
     return pagesLocal;
   }
 
-  private ArrayList<ModelPage> collectingPages(String siteLocal, ArrayList<Integer> pagesIdsLocal, int z ){
+  private ArrayList<ModelPage> collectPages(String siteLocal, ArrayList<Integer> pagesIdsLocal, int z ){
     ArrayList<ModelPage> pagesLocal = new ArrayList<>();
     ModelPage modelPageToCheck = pagesRepository.findById(pagesIdsLocal.get(z)).get();
     if(siteLocal!=null && !(siteLocal.isEmpty())){
@@ -415,6 +417,7 @@ public class SearchService {
     if(lemmasWithMaxFrequency.isEmpty()){
       return new SearchResponseSucceeded(true, 0, new ArrayList<>());
     }
+    resetCounters();
     currentLowestFrequencyValue = calculateLowestFrequency(lemmasWithMaxFrequency);
     currentAllowedMaxLemmaFrequencyTotal = calculateAllowedMaxLemmaFrequencyTotal(currentLowestFrequencyValue, lemmasWithMaxFrequency.size());
     lemmasWithMaxFrequency.entrySet().removeIf(entry -> entry.getValue()>currentAllowedMaxLemmaFrequencyTotal);
@@ -427,8 +430,14 @@ public class SearchService {
     collectingMap.put(2, lemmasWithPages);
     collectingMap.put(3, lemmasWithPathsAndSnippets);
     collectingMap.put(4, pageIdsWithRelRel);
-    data = new ArrayList<>(finishingSearch(currentAllowedMaxLemmaFrequencyTotal, collectingMap));
+    data = new ArrayList<>(finishSearch(currentAllowedMaxLemmaFrequencyTotal, collectingMap));
     return new SearchResponseSucceeded(true, data.size(), new ArrayList<>(data.subList(calculateOffset(offset), calculateLimit(limit, calculateOffset(offset), data.size()))));
   }
+
+  private void resetCounters(){
+    pagesCounter = 0;
+    pagesArrayReduction = 0;
+  }
+
 }
 

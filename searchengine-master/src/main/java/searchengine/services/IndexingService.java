@@ -156,15 +156,15 @@ public class IndexingService extends RecursiveAction {
   private void startIndexing(){
     log.info("Indexing is started");
     if(isFirstRun){
-      performingFirstRun();
+      performFirstRun();
     }
   }
 
-  private void performingFirstRun(){
+  private void performFirstRun(){
     for(int i = 0; i< initialConSites.getSites().size(); i++){
       firstRunPerSite(initialConSites.getSites().get(i));
     }
-    joiningSubFirstTasks();
+    joinSubFirstTasks();
   }
 
   private void firstRunPerSite(Site site){
@@ -172,11 +172,10 @@ public class IndexingService extends RecursiveAction {
     try{
       int siteIdToDelete = sitesRepository.findByName(site.getName()).getId();
       List<Integer> pagesIds = pagesRepository.findAllPagesIdsBySiteId(siteIdToDelete);
-      deletingOldData(siteIdToDelete, pagesIds);
+      deleteOldData(siteIdToDelete, pagesIds);
     } catch (Exception e) {
       log.trace("Your DB may be empty");
       log.trace(e.getMessage());
-      throw new RuntimeException(e);
     }
     uncheckedCheckerLinks = new ArrayList<>();
     arguments = new ArrayList<>(List.of(site.getUrl(), "",String.valueOf(0), site.getName(), "", String.valueOf(true), String.valueOf(setLevel(url)), connectionProperties.getUserAgent(), connectionProperties.getReferrer(), connectionProperties.getTimeout()));
@@ -190,7 +189,7 @@ public class IndexingService extends RecursiveAction {
     }
   }
 
-  private void deletingOldData(int siteIdToDelete, List<Integer> pagesIds){
+  private void deleteOldData(int siteIdToDelete, List<Integer> pagesIds){
     for(int id : pagesIds){
       indexRepository.deleteIndexByPageId(id);
     }
@@ -199,7 +198,7 @@ public class IndexingService extends RecursiveAction {
     sitesRepository.deleteById(siteIdToDelete);
   }
 
-  private void joiningSubFirstTasks(){
+  private void joinSubFirstTasks(){
     for (IndexingService task : subFirstTasks) {
       if(isIndexing.get()){
         task.join();
@@ -216,19 +215,19 @@ public class IndexingService extends RecursiveAction {
     if(!url.isEmpty() && isIndexing.get()){
       ArrayList<Document> availableCheckedLinks = new ArrayList<>(isAvailable(url));
       ArrayList<String> validLinks = new ArrayList<>(isCorrectLink(availableCheckedLinks));
-      processingLinks(validLinks);
+      processLinks(validLinks);
     }
   }
 
   private ArrayList<Document> isAvailable(String url) {
     if ((pagesRepository.countBySiteId(siteId) < NUMBEROFLINES || NUMBEROFLINES == 0) && (level < DEPTH || DEPTH == 0)) {
-      return checkingLink(url);
+      return checkLink(url);
     }else{
       return new ArrayList<>();
     }
   }
 
-  private ArrayList<Document> checkingLink(String url){
+  private ArrayList<Document> checkLink(String url){
     ArrayList<Document> AvailableLinks = new ArrayList<>();
     if (pagesRepository.findByPath(url)==null) {
       try {
@@ -324,24 +323,24 @@ public class IndexingService extends RecursiveAction {
   private ArrayList<String> isCorrectLink(ArrayList<Document> DocumentsToCheck) {
     ArrayList<String> links = new ArrayList<>();
     for (int i = 0; i < DocumentsToCheck.size(); i++) {
-      links.addAll(collectingLinks(DocumentsToCheck.get(i)));
+      links.addAll(collectLinks(DocumentsToCheck.get(i)));
     }
     return links;
   }
 
-  private ArrayList<String> collectingLinks(Document receivedDocument){
+  private ArrayList<String> collectLinks(Document receivedDocument){
     ArrayList<String> linksLocal = new ArrayList<>();
     doc3 = receivedDocument;
     if (doc3 != null) {
       Elements subLinksHead = doc3.select("a");
       for (Element subLink : subLinksHead) {
-        LinkCleaner(linksLocal, subLink);
+        linkCleaner(linksLocal, subLink);
       }
     }
     return linksLocal;
   }
 
-  private void LinkCleaner(ArrayList<String> Links, Element subLink){
+  private void linkCleaner(ArrayList<String> Links, Element subLink){
     if (
         String.valueOf(subLink).matches(".*[\"']" + baseUrl + "/.*[\"']((.|\\n)*)")
             && !String.valueOf(subLink).matches(".*[\"']" + baseUrl + "/.*[.pdf][\"'].*")
@@ -364,16 +363,16 @@ public class IndexingService extends RecursiveAction {
     }
   }
 
-  private void processingLinks(ArrayList<String> linksToSave) {
+  private void processLinks(ArrayList<String> linksToSave) {
     if((isIndexing.get() && pagesRepository.countBySiteId(siteId) < NUMBEROFLINES || NUMBEROFLINES == 0)){
       for (int i = 0; i < linksToSave.size(); i++) {
-        generatingThread(linksToSave.get(i));
+        generateThread(linksToSave.get(i));
       }
-      joiningTasks();
+      joinTasks();
     }
   }
 
-  private void generatingThread(String link){
+  private void generateThread(String link){
     if (!uncheckedCheckerLinks.contains(link)
         && pagesRepository.findByPath(link.toString().replace(baseUrl, ""))==null)
     {
@@ -390,7 +389,7 @@ public class IndexingService extends RecursiveAction {
     }
   }
 
-  private void joiningTasks(){
+  private void joinTasks(){
     for (IndexingService task : subTasks) {
       if(isIndexing.get()){
         task.join();

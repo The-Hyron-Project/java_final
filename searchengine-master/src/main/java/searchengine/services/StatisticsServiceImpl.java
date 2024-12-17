@@ -2,7 +2,6 @@ package searchengine.services;
 
 import java.time.ZoneId;
 import lombok.RequiredArgsConstructor;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import searchengine.config.Site;
 import searchengine.config.SitesList;
@@ -42,7 +41,7 @@ public class StatisticsServiceImpl implements StatisticsService {
             ModelSite modelSite = sitesRepository.findByName(site.getName());
             if(modelSite==null){
             }else{
-            DetailedStatisticsItem item = creatingDetailedStatisticsItem(site, modelSite);
+            DetailedStatisticsItem item = createDetailedStatisticsItem(site, modelSite);
             total.setPages(total.getPages() + item.getPages());
             total.setLemmas(total.getLemmas() + item.getLemmas());
             detailed.add(item);
@@ -57,7 +56,7 @@ public class StatisticsServiceImpl implements StatisticsService {
         return response;
     }
 
-    private DetailedStatisticsItem creatingDetailedStatisticsItem(Site site, ModelSite modelSite){
+    private DetailedStatisticsItem createDetailedStatisticsItem(Site site, ModelSite modelSite){
         DetailedStatisticsItem item = new DetailedStatisticsItem();
         item.setName(site.getName());
         item.setUrl(site.getUrl());

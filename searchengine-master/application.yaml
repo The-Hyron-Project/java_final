@@ -23,16 +23,16 @@ spring:
 
 indexing-settings:
   sites:
-    - url: http://localhost
-      name: тест
-#    - url: https://nopaper.ru
-#      name: cандаль
-#    - url: https://www.lenta.ru
-#      name: Лента.ру
-#    - url: https://www.skillbox.ru
-#      name: Skillbox
-#    - url: https://www.playback.ru
-#      name: PlayBack.Ru
+#    - url: http://localhost
+#      name: тест
+    - url: https://nopaper.ru
+      name: cандаль
+    - url: https://www.lenta.ru
+      name: Лента.ру
+    - url: https://www.skillbox.ru
+      name: Skillbox
+    - url: https://www.playback.ru
+      name: PlayBack.Ru
 
 connection-settings:
   userAgent: Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:131.0) Gecko/20100101 Firefox/131.0

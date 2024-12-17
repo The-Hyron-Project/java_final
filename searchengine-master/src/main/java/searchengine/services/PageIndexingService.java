@@ -61,7 +61,7 @@ public class PageIndexingService {
     this.initialConSites=initialConSites;
   }
 
-  private Connection.Response Connect (String url){
+  private Connection.Response connect(String url){
     userAgent = connectionProperties.getUserAgent();
     referrer = connectionProperties.getReferrer();
     timeout = connectionProperties.getTimeout();
@@ -89,15 +89,15 @@ public class PageIndexingService {
 
   private Boolean isSitePresentInConfiguration(String siteAddress) {
     Boolean isPresent = false;
-    String siteExtractedAddress = gettingExactSiteAddress(siteAddress);
+    String siteExtractedAddress = getExactSiteAddress(siteAddress);
     for (int i = 0; i < initialConSites.getSites().size(); i++) {
-      isPresent = gettingSiteName(siteExtractedAddress, i);
+      isPresent = getSiteName(siteExtractedAddress, i);
       if(isPresent) break;
     }
     return isPresent;
   }
 
-  private boolean gettingSiteName(String siteExtractedAddress, int i){
+  private boolean getSiteName(String siteExtractedAddress, int i){
     Boolean isPresentLocal = false;
     if(siteExtractedAddress.equals(initialConSites.getSites().get(i).getUrl())){
       isPresentLocal = true;
@@ -115,14 +115,14 @@ public class PageIndexingService {
     }
   }
 
-  private String gettingExactSiteAddress(String pageAddress){
+  private String getExactSiteAddress(String pageAddress){
     String[] steps = pageAddress.split("/");
     String siteAddress = steps[0]+steps[1]+"//"+steps[2];
     return siteAddress;
   }
 
-  private String gettingExactPageAddress(String thisPageAddress){
-    String pageAddress = thisPageAddress.replace(gettingExactSiteAddress(thisPageAddress),"");
+  private String getExactPageAddress(String thisPageAddress){
+    String pageAddress = thisPageAddress.replace(getExactSiteAddress(thisPageAddress),"");
     return pageAddress;
   }
 
@@ -139,13 +139,13 @@ public class PageIndexingService {
   private HashMap<String, Integer> sentenceToWordsSingleThread(String[] words, int start, int finish) {
     for (; start < finish; start++) {
       if (WordProcessor.isNotServiceWord(words[start])) {
-        savingDefaultForm(words[start]);
+        saveDefaultForm(words[start]);
       }
     }
     return wordsCounter;
   }
 
-  private void savingDefaultForm(String wordToFind){
+  private void saveDefaultForm(String wordToFind){
       String wordDefaultForm = WordProcessor.getDefaultForm(wordToFind);
       if(!wordDefaultForm.isBlank()){
         synchronized(this){
@@ -184,7 +184,7 @@ public class PageIndexingService {
   private void saveSite(Connection.Response response, String pageAddress){
     log.info("Сохраняем сайт " + pageAddress);
     ModelSite modelSite = new ModelSite();
-    modelSite.setUrl(gettingExactSiteAddress(pageAddress));
+    modelSite.setUrl(getExactSiteAddress(pageAddress));
     modelSite.setName(siteName);
     modelSite.setStatusTime(LocalDateTime.now());
     if(response!=null && response.statusCode()==200) {
@@ -210,11 +210,11 @@ public class PageIndexingService {
     if(!index.isEmpty()){
       indexRepository.deleteIndexByPageId(modelPage.getId());
       pagesRepository.delete(modelPage);
-      correctingAndDeletingLemmas();
+      correctAndDeleteLemmas();
     }
   }
 
-  private void correctingAndDeletingLemmas(){
+  private void correctAndDeleteLemmas(){
     finalList.forEach((key, value) -> {
       Lemma lemma = lemmaRepository.findLemmaByLemmaAndSiteId(key,siteId);
       if(lemma!=null){
@@ -241,14 +241,14 @@ public class PageIndexingService {
       modelPage.setCode(response.statusCode());
       modelPage.setContent(String.valueOf(doc2));
     }
-    modelPage.setPath(gettingExactPageAddress(pageAddress));
+    modelPage.setPath(getExactPageAddress(pageAddress));
     modelPage.setModelSite(sitesRepository.findById(siteId).get());
     pagesRepository.save(modelPage);
   }
 
   private Boolean areLemmasPresent(String pageAddress){
     log.info("Проверка наличия лемм для " + pageAddress);
-    modelPage = pagesRepository.findByUrlAndId(gettingExactPageAddress(pageAddress),siteId);
+    modelPage = pagesRepository.findByUrlAndId(getExactPageAddress(pageAddress),siteId);
     if(modelPage==null){
       return false;
     }
@@ -261,7 +261,7 @@ public class PageIndexingService {
 
   private List<Index> findLemmas(String pageAddress){
     log.info("Ищем леммы для " + pageAddress);
-    modelPage = pagesRepository.findByUrlAndId(gettingExactPageAddress(pageAddress),siteId);
+    modelPage = pagesRepository.findByUrlAndId(getExactPageAddress(pageAddress),siteId);
     List<Index> index = indexRepository.findIndexByPageId(modelPage.getId());
     if(!index.isEmpty()){
       return index;
@@ -273,27 +273,28 @@ public class PageIndexingService {
     if (!isSitePresentInConfiguration(pageAddress)) {
       return new RequestResponceFailed(false, "Данная страница находится за пределами сайтов, указанных в конфигурационном файле");
     }
-    if (!isSitePresentInTheRepository(gettingExactSiteAddress(pageAddress)) || !isPagePresentInRepository(gettingExactPageAddress(pageAddress)) || (isPagePresentInRepository(gettingExactPageAddress(pageAddress)) && areLemmasPresent(pageAddress))) {
+    if (!isSitePresentInTheRepository(getExactSiteAddress(pageAddress)) || !isPagePresentInRepository(
+        getExactPageAddress(pageAddress)) || (isPagePresentInRepository(getExactPageAddress(pageAddress)) && areLemmasPresent(pageAddress))) {
       try {
-        response = Connect(pageAddress);
+        response = connect(pageAddress);
         doc2 = response.parse();
       } catch (IOException e) {
         throw new RuntimeException(e);
       }
     } else {
-      modelPage = pagesRepository.findByUrlAndId(gettingExactPageAddress(pageAddress), siteId);
+      modelPage = pagesRepository.findByUrlAndId(getExactPageAddress(pageAddress), siteId);
       doc2 = Jsoup.parse(modelPage.getContent());
     }
     finalList = sentenceToWords(doc2.body().text());
-    findingAndDeletingOldEntries(pageAddress);
-    savingData(response, pageAddress);
+    findAndDeleteOldEntries(pageAddress);
+    saveData(response, pageAddress);
     if (!finalList.isEmpty()) {
-        finalList.forEach(this::savingFinalLemma);
+        finalList.forEach(this::saveFinalLemma);
     }
     return new RequestResponceSucceeded(true);
   }
 
-  private void findingAndDeletingOldEntries(String pageAddress){
+  private void findAndDeleteOldEntries(String pageAddress){
     if (areLemmasPresent(pageAddress)) {
       List<Index> index = findLemmas(pageAddress);
       if (!index.isEmpty()) {
@@ -302,16 +303,16 @@ public class PageIndexingService {
     }
   }
 
-  private void savingData(Connection.Response response, String pageAddress){
-    if (!isSitePresentInTheRepository(gettingExactSiteAddress(pageAddress))) {
+  private void saveData(Connection.Response response, String pageAddress){
+    if (!isSitePresentInTheRepository(getExactSiteAddress(pageAddress))) {
       saveSite(response, pageAddress);
     }
-    if (!isPagePresentInRepository(gettingExactPageAddress(pageAddress))) {
+    if (!isPagePresentInRepository(getExactPageAddress(pageAddress))) {
       savePage(response, pageAddress);
     }
   }
 
-  private void savingFinalLemma(String word, int rank){
+  private void saveFinalLemma(String word, int rank){
     synchronized(mutex){
       Lemma lemma = lemmaRepository.findLemmaByLemmaAndSiteId(word,siteId);
       if(lemma==null){

@@ -87,18 +87,18 @@ public class WordProcessor {
   public static ArrayList<String> arrayToSentence(String lemma, String[] words){
     ArrayList<String> snippetToReturn = new ArrayList<>();
     for (int i = 0; i < words.length; i++){
-      snippetToReturn.addAll(iteratingThroughInitiallySeparatedWords(lemma, words, i));
+      snippetToReturn.addAll(iterateThroughInitiallySeparatedWords(lemma, words, i));
     }
     return snippetToReturn;
   }
 
-  private static ArrayList<String> iteratingThroughInitiallySeparatedWords(String lemma,String[] words, int i){
+  private static ArrayList<String> iterateThroughInitiallySeparatedWords(String lemma,String[] words, int i){
     ArrayList<String> localsSnippetToReturn = new ArrayList<>();
     if(words[i].matches("\\D*") && !words[i].isBlank()){
       String[] words2 = words[i].split("\\.\\s+|\\,\\s+|\\.\\s*|-+|'|:|\"|\\?|«|»|,");
       for (int y = 0; y < words2.length; y++){
         ArrayList<String> arguments = new ArrayList<>(List.of(words2[y], lemma));
-        localsSnippetToReturn.addAll(iteratingThroughAdditionallySeparatedWords(arguments, i, words));
+        localsSnippetToReturn.addAll(iterateThroughAdditionallySeparatedWords(arguments, i, words));
       }
     }else if(!words[i].isBlank() && words[i].matches("[0-9]+") && words[i].matches(lemma)){
       localsSnippetToReturn.add(createSentence(words, i));
@@ -106,7 +106,7 @@ public class WordProcessor {
     return localsSnippetToReturn;
   }
 
-  private static ArrayList<String> iteratingThroughAdditionallySeparatedWords(ArrayList<String> arguments, int i, String[] words){
+  private static ArrayList<String> iterateThroughAdditionallySeparatedWords(ArrayList<String> arguments, int i, String[] words){
     ArrayList<String> localsSnippetToReturn = new ArrayList<>();
     String separatedWord = arguments.get(0);
     String lemma = arguments.get(1);
