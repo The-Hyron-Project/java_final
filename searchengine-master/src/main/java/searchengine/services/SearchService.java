@@ -1,7 +1,6 @@
 package searchengine.services;
 
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
@@ -48,8 +47,7 @@ public class SearchService {
   private ArrayList<String> lemmas;
   private ArrayList<Integer> lemmaIds;
 
-  private HashMap<String, Integer> getEachLemmaMaxFrequency(ArrayList<String> separatedWords,
-      String site) {
+  private HashMap<String, Integer> getEachLemmaMaxFrequency(ArrayList<String> separatedWords, String site) {
     HashMap<String, Integer> lemmasWithMaxFrequencyToReturn = new HashMap<>();
     if (site == null) {
       lemmasWithMaxFrequencyToReturn.putAll(processLemmasNoFilter(separatedWords));
@@ -86,8 +84,7 @@ public class SearchService {
     return localMapToReturn;
   }
 
-  private HashMap<String, Integer> processLemmasWithFilter(ArrayList<String> separatedWords,
-      int localSiteId) {
+  private HashMap<String, Integer> processLemmasWithFilter(ArrayList<String> separatedWords, int localSiteId) {
     HashMap<String, Integer> lemmasWithMaxFrequencyToReturn = new HashMap<>();
     for (int i = 0; separatedWords.size() > i; i++) {
       HashMap<String, Integer> localCheck = new HashMap<>(
@@ -101,8 +98,7 @@ public class SearchService {
     return lemmasWithMaxFrequencyToReturn;
   }
 
-  private HashMap<String, Integer> getLemmaMaxFrequencyWithFiltration(String word,
-      int localSiteId) {
+  private HashMap<String, Integer> getLemmaMaxFrequencyWithFiltration(String word, int localSiteId) {
     HashMap<String, Integer> localMapToReturn = new HashMap<>();
     if (lemmaRepository.findLemmaTotalFrequencyByLemma(word) != null) {
       List<Integer> numsToSum = lemmaRepository.findLemmaTotalFrequencyByLemmaAndSiteId(word,
@@ -115,22 +111,30 @@ public class SearchService {
     return localMapToReturn;
   }
 
-  private ArrayList<String> sentenceToWords(String sentence) {
+  private ArrayList<String> startProcessSentenceToWords(String sentence) {
     separateWords = new ArrayList<>();
     String[] words = sentence.split("\\.\\s+|\\,*\\s+|\\.\\s*|-+|'|:|\"|\\?|«|»");
     if (words.length < 6) {
-      return sentenceToWordsSingleThread(words, 0, words.length);
+      return processSentenceToWordsInSingleThread(words, 0, words.length);
     } else {
-      return sentenceToWordsMultiThread(words);
+      return processSentenceToWordsInMultiThread(words);
     }
   }
 
-  private ArrayList<String> sentenceToWordsSingleThread(String[] words, int start, int finish) {
+  private ArrayList<String> processSentenceToWordsInSingleThread(String[] words, int start, int finish) {
     for (; start < finish; start++) {
       if (WordProcessor.isNotServiceWord(words[start])) {
         gatherWordDefaultForms(words, start);
       }
     }
+    return separateWords;
+  }
+
+  public ArrayList<String> processSentenceToWordsInMultiThread(String[] words) {
+    createThreads(words, 0, words.length / 3);
+    createThreads(words, words.length / 3, words.length / 3 * 2);
+    createThreads(words, words.length / 3 * 2, words.length);
+    joinThreads();
     return separateWords;
   }
 
@@ -143,18 +147,10 @@ public class SearchService {
     }
   }
 
-  public ArrayList<String> sentenceToWordsMultiThread(String[] words) {
-    createThreads(words, 0, words.length / 3);
-    createThreads(words, words.length / 3, words.length / 3 * 2);
-    createThreads(words, words.length / 3 * 2, words.length);
-    joinThreads();
-    return separateWords;
-  }
-
   private void createThreads(String[] words, int start, int finish) {
     Thread PageIndexingThread = new Thread() {
       public void run() {
-        sentenceToWordsSingleThread(words, start, finish);
+        processSentenceToWordsInSingleThread(words, start, finish);
       }
     };
     subTasks.add(PageIndexingThread);
@@ -171,7 +167,7 @@ public class SearchService {
     }
   }
 
-  private String lemmaToSnippet(ArrayList<String> lemmas, String text) {
+  private String processLemmaToSnippet(ArrayList<String> lemmas, String text) {
     return WordProcessor.arrayToSentence(lemmas, text);
   }
   
@@ -213,16 +209,14 @@ public class SearchService {
     return Optional.empty();
   }
 
-  private Double calculateAllowedMaxLemmaFrequencyTotal(
-      Optional<Entry<String, Integer>> currentLowestFrequencyValue, int size) {
+  private Double calculateAllowedMaxLemmaFrequencyTotal(Optional<Entry<String, Integer>> currentLowestFrequencyValue) {
     if (currentLowestFrequencyValue != null && currentLowestFrequencyValue.isPresent()) {
       return (double) (currentLowestFrequencyValue.get().getValue() * 3);
     }
     return (double) 0;
   }
 
-  private HashMap<Integer, Double> calculatePageIdsWithRelRel(
-      HashMap<Integer, Double> pageIdsWithMaxRel, Double maxRel) {
+  private HashMap<Integer, Double> calculatePageIdsWithRelativeRelevance(HashMap<Integer, Double> pageIdsWithMaxRel, Double maxRel) {
     HashMap<Integer, Double> localMap = new HashMap<>();
     for (Entry<Integer, Double> entry : pageIdsWithMaxRel.entrySet()) {
       localMap.put(entry.getKey(), entry.getValue() / maxRel);
@@ -230,32 +224,23 @@ public class SearchService {
     return localMap;
   }
 
-  private Double calculateMaxRel(HashMap<Integer, Double> pageIdsWithMaxRel) {
+  private Double calculateMaximumRelevance(HashMap<Integer, Double> pageIdsWithMaxRel) {
     return pageIdsWithMaxRel.entrySet().stream().max(
         (Entry<Integer, Double> e1, Entry<Integer, Double> e2) -> e1.getValue()
             .compareTo(e2.getValue())).get().getValue();
   }
 
-  public RequestResponse startSearching(String sentence, int offset, int limit, String site) {
+  public RequestResponse startSearch(String sentence, int offset, int limit, String site) {
     if (sentence == null || sentence.isEmpty()) {
       return new RequestResponceFailed(false, "Задан пустой поисковый запрос");
     }
-    separatedWords = sentenceToWords(sentence);
+    separatedWords = startProcessSentenceToWords(sentence);
     lemmaIds = new ArrayList<>();
     lemmasWithMaxFrequency = getEachLemmaMaxFrequency(separatedWords, site);
     if (lemmasWithMaxFrequency.isEmpty()) {
       return new SearchResponseSucceeded(true, 0, new ArrayList<>());
     }
-    currentLowestFrequencyValue = calculateLowestFrequency(lemmasWithMaxFrequency);
-    currentAllowedMaxLemmaFrequencyTotal = calculateAllowedMaxLemmaFrequencyTotal(
-        currentLowestFrequencyValue, lemmasWithMaxFrequency.size());
-    lemmasWithMaxFrequency.entrySet()
-        .removeIf(entry -> entry.getValue() > currentAllowedMaxLemmaFrequencyTotal);
-    lemmas = new ArrayList<>();
-    for(Entry<String, Integer> entry : lemmasWithMaxFrequency.entrySet()) {
-      lemmas.add(entry.getKey());
-    }
-    lemmasWithMaxFrequency.entrySet().removeIf(entry -> entry == currentLowestFrequencyValue.get());
+    calculateFrequencies();
     foundPageIds = new ArrayList<>(fillInitialPages(site, currentLowestFrequencyValue));
     if (!lemmasWithMaxFrequency.isEmpty()) {
       fillRemainingPages(site);
@@ -264,41 +249,39 @@ public class SearchService {
       return new SearchResponseSucceeded(true, 0, new ArrayList<>());
     }
     pageIdsWithMaxRel = new HashMap<>(collectIdsAndRankSum(foundPageIds));
-    pageIdsWithRelRel = new HashMap<>(calculatePageIdsWithRelRel(pageIdsWithMaxRel, calculateMaxRel(pageIdsWithMaxRel)));
+    pageIdsWithRelRel = new HashMap<>(
+        calculatePageIdsWithRelativeRelevance(pageIdsWithMaxRel, calculateMaximumRelevance(pageIdsWithMaxRel)));
     data = new ArrayList<>(finishSearch(calculateOffset(offset)));
     return new SearchResponseSucceeded(true, pageIdsWithRelRel.size(), data);
+  }
+
+  private void calculateFrequencies(){
+    currentLowestFrequencyValue = calculateLowestFrequency(lemmasWithMaxFrequency);
+    currentAllowedMaxLemmaFrequencyTotal = calculateAllowedMaxLemmaFrequencyTotal(currentLowestFrequencyValue);
+    lemmasWithMaxFrequency.entrySet().removeIf(entry -> entry.getValue() > currentAllowedMaxLemmaFrequencyTotal);
+    lemmas = fillLemmas();
+    lemmasWithMaxFrequency.entrySet().removeIf(entry -> entry == currentLowestFrequencyValue.get());
+  }
+
+  private ArrayList<String> fillLemmas(){
+    ArrayList<String> dataToReturn = new ArrayList<>();
+    for(Entry<String, Integer> entry : lemmasWithMaxFrequency.entrySet()) {
+      dataToReturn.add(entry.getKey());
+    }
+    return dataToReturn;
   }
   
   private ArrayList<SearchResponseItem> finishSearch(int offset){
     Map<Integer, Double> sortedMap = sortMapByValueDescending(pageIdsWithRelRel);
     List<ModelPage> allPagesList = pagesRepository.findAllPagesByPageIds(foundPageIds);
-    HashMap<Integer, Double> localPageIdsWithRelRel = sortedMap.entrySet().stream()
-        .skip(offset)
-        .limit(10)
-        .collect(
-        Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue, (e1, e2) -> e1, LinkedHashMap::new)
-        );
+    HashMap<Integer, Double> localPageIdsWithRelRel = sortedMap.entrySet().stream().skip(offset).limit(10).collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue, (e1, e2) -> e1, LinkedHashMap::new));
     ArrayList<SearchResponseItem> dataLocal = new ArrayList<>();
       while(!localPageIdsWithRelRel.isEmpty()){
-        Optional<Entry<Integer, Double>> localCurrentLowestRelRelPage = localPageIdsWithRelRel.entrySet()
-            .stream()
-            .min((Entry<Integer, Double> e1, Entry<Integer, Double> e2) -> e1.getValue()
-            .compareTo(e2.getValue())
-             );
-        localPageIdsWithRelRel.entrySet()
-            .removeIf(entry -> entry == localCurrentLowestRelRelPage.get());
-        Optional<ModelPage> modelPage = allPagesList
-            .stream()
-            .filter((modelPage1 -> modelPage1.getId()==localCurrentLowestRelRelPage.get().getKey()))
-            .findFirst();
+        Optional<Entry<Integer, Double>> localCurrentLowestRelRelPage = localPageIdsWithRelRel.entrySet().stream().min((Entry<Integer, Double> e1, Entry<Integer, Double> e2) -> e1.getValue().compareTo(e2.getValue()));
+        localPageIdsWithRelRel.entrySet().removeIf(entry -> entry == localCurrentLowestRelRelPage.get());
+        Optional<ModelPage> modelPage = allPagesList.stream().filter((modelPage1 -> modelPage1.getId()==localCurrentLowestRelRelPage.get().getKey())).findFirst();
         Optional<ModelSite> modelSite = Optional.ofNullable(modelPage.get().getModelSite());
-        dataLocal.add(new SearchResponseItem(
-            modelSite.get().getUrl(),
-            modelSite.get().getName(),
-            modelPage.get().getPath(),
-            Jsoup.parse(modelPage.get().getContent()).title(),
-            lemmaToSnippet(lemmas, Jsoup.parse(modelPage.get().getContent()).text()),
-            localCurrentLowestRelRelPage.get().getValue()
+        dataLocal.add(new SearchResponseItem(modelSite.get().getUrl(), modelSite.get().getName(), modelPage.get().getPath(), Jsoup.parse(modelPage.get().getContent()).title(), processLemmaToSnippet(lemmas, Jsoup.parse(modelPage.get().getContent()).text()), localCurrentLowestRelRelPage.get().getValue()
         ));
       }
     dataLocal.sort(new Comparator<SearchResponseItem>() {
@@ -310,9 +293,7 @@ public class SearchService {
       return dataLocal;
   }
 
-  private ArrayList<Integer> fillInitialPages(String site,
-      Optional<Entry<String, Integer>> localCurrentLowestFrequencyValue) {
-//    lemmas.add(localCurrentLowestFrequencyValue.get().getKey());
+  private ArrayList<Integer> fillInitialPages(String site, Optional<Entry<String, Integer>> localCurrentLowestFrequencyValue) {
     if (site == null) {
       lemmaIds = lemmaRepository.findLemmaIdByLemma(
           localCurrentLowestFrequencyValue.get().getKey());
@@ -327,19 +308,18 @@ public class SearchService {
 
   private void fillRemainingPages(String site) {
     while (!lemmasWithMaxFrequency.isEmpty()) {
-      Optional<Entry<String, Integer>> localCurrentLowestFrequencyValue = calculateLowestFrequency(
-          lemmasWithMaxFrequency);
-//      lemmas.add(localCurrentLowestFrequencyValue.get().getKey());
-      lemmasWithMaxFrequency.entrySet()
-          .removeIf(entry -> entry == localCurrentLowestFrequencyValue.get());
+      Optional<Entry<String, Integer>> localCurrentLowestFrequencyValue = calculateLowestFrequency(lemmasWithMaxFrequency);
+      lemmasWithMaxFrequency.entrySet().removeIf(entry -> entry == localCurrentLowestFrequencyValue.get());
       ArrayList<Integer> finalPageIds = fillInitialPages(site, localCurrentLowestFrequencyValue);
       for(int z = 0;foundPageIds.size()> z;z++){
-//      for (int i = 0; finalPageIds.size() > i; i++) {
-          if(!finalPageIds.contains(foundPageIds.get(z))){
-            foundPageIds.remove(z);
-          }
-//        }
+        deleteUnneededPages(finalPageIds, z);
       }
+    }
+  }
+
+  private void deleteUnneededPages(ArrayList<Integer> finalPageIds, int pageIndex){
+    if(!finalPageIds.contains(foundPageIds.get(pageIndex))){
+      foundPageIds.remove(pageIndex);
     }
   }
 
