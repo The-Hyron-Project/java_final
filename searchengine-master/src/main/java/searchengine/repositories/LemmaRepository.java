@@ -1,19 +1,16 @@
 package searchengine.repositories;
 
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.CrudRepository;
 import org.springframework.transaction.annotation.Transactional;
-import searchengine.model.Index;
 import searchengine.model.Lemma;
 
 public interface LemmaRepository extends CrudRepository<Lemma, Integer> {
   @Query(value = "SELECT * FROM lemma where lemma = ?1 and site_id = ?2", nativeQuery = true)
-  public Lemma findLemmaByLemmaAndSiteId(String path, int site_id);
+  public Lemma findLemmaByLemmaAndSiteId(String lemma, int site_id);
   @Modifying
   @Transactional
   @Query(value = "DELETE FROM lemma where lemma = ?1 and site_id = ?2", nativeQuery = true)
@@ -26,8 +23,14 @@ public interface LemmaRepository extends CrudRepository<Lemma, Integer> {
   public int countLemmasBySiteId(int id);
   @Query(value = "select frequency FROM lemma where lemma = ?1", nativeQuery = true)
   public List<Integer> findLemmaTotalFrequencyByLemma(String lemma);
+  @Query(value = "select frequency FROM lemma where lemma = ?1 AND site_id = ?2", nativeQuery = true)
+  public List<Integer> findLemmaTotalFrequencyByLemmaAndSiteId(String lemma, int id);
   @Query(value = "select id FROM lemma where lemma = ?1", nativeQuery = true)
-  public List<Integer> findLemmaIdByLemma(String lemma);
+  public ArrayList<Integer> findLemmaIdByLemma(String lemma);
+  @Query(value = "SELECT id FROM lemma where lemma = ?1 and site_id = ?2", nativeQuery = true)
+  public ArrayList<Integer> findLemmaIdByLemmaAndSiteId(String lemma, int site_id);
+
+
 
 
 

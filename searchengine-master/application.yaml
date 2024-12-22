@@ -2,7 +2,7 @@
 #  level:
 #    root: "TRACE"
 #    org.springframework.web: "TRACE"
-#    org.hibernate: "error"
+#    org.hibernate: "TRACE"
 
 
 
@@ -23,8 +23,8 @@ spring:
 
 indexing-settings:
   sites:
-#    - url: http://localhost
-#      name: тест
+    - url: http://localhost
+      name: тест
     - url: https://nopaper.ru
       name: cандаль
     - url: https://www.lenta.ru

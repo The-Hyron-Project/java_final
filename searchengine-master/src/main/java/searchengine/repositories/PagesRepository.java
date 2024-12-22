@@ -22,6 +22,9 @@ public interface PagesRepository extends CrudRepository<ModelPage, Integer> {
   public ModelPage findByUrlAndId(String url, int id);
   @Query(value = "SELECT id FROM page where site_id = ?1", nativeQuery = true)
   public List<Integer> findAllPagesIdsBySiteId(int id);
+  @Query(value = "SELECT p.id as pid, p.* FROM page p where p.id in ?1", nativeQuery = true)
+  public List<ModelPage> findAllPagesByPageIds(List<Integer> ids);
+
 
 
 }
