@@ -39,7 +39,7 @@ import searchengine.repositories.SitesRepository;
 @Slf4j
 @RequiredArgsConstructor(onConstructor_ = @Autowired)
 @Service
-public class IndexingService extends RecursiveAction {
+public class IndexService extends RecursiveAction {
 
   private final PagesRepository pagesRepository;
   private final SitesRepository sitesRepository;
@@ -47,7 +47,7 @@ public class IndexingService extends RecursiveAction {
   private final LemmaRepository lemmaRepository;
   private final SitesList initialConSites;
   private final ConnectionProperties connectionProperties;
-  private final PageIndexingService pageIndexingService;
+  private final PageIndexService pageIndexService;
   private final ScheduledExecutorService scheduler = Executors.newScheduledThreadPool(1);
   private String userAgent;
   private String referrer;
@@ -61,8 +61,8 @@ public class IndexingService extends RecursiveAction {
   private Document doc2 = null;
   private Document doc3 = null;
   private static ArrayList<String> uncheckedCheckerLinks;
-  private List<IndexingService> subTasks = new ArrayList<>();
-  private List<IndexingService> subFirstTasks = new ArrayList<>();;
+  private List<IndexService> subTasks = new ArrayList<>();
+  private List<IndexService> subFirstTasks = new ArrayList<>();;
   private int siteId;
   private static AtomicBoolean isStarted = new AtomicBoolean(false);
   private Connection.Response response = null;
@@ -76,7 +76,8 @@ public class IndexingService extends RecursiveAction {
   private RequestResponceSucceeded requestResponceSucceeded;
   private String errorMessage;
 
-  private IndexingService(List<String> arguments, List<CrudRepository> repArguments,PageIndexingService pageIndexingService, SitesList initialConSites, ConnectionProperties connectionProperties) {
+  private IndexService(List<String> arguments, List<CrudRepository> repArguments,
+      PageIndexService pageIndexService, SitesList initialConSites, ConnectionProperties connectionProperties) {
     this.url = arguments.get(0);
     this.baseUrl = arguments.get(1);
     this.siteId = Integer.parseInt(arguments.get(2));
@@ -90,16 +91,16 @@ public class IndexingService extends RecursiveAction {
     this.pagesRepository = (PagesRepository) repArguments.get(1);
     this.indexRepository = (IndexRepository) repArguments.get(2);
     this.lemmaRepository = (LemmaRepository) repArguments.get(3);
-    this.pageIndexingService = pageIndexingService;
+    this.pageIndexService = pageIndexService;
     this.initialConSites = initialConSites;
-    this.connectionProperties=connectionProperties;
+    this.connectionProperties = connectionProperties;
 
   }
 
   @Bean
   private void flagChecker(){
     Runnable collection = () -> {
-      if(isIndexing.get() && !isStarted.get()){
+      if(isIndexing.get() && !isStarted.get()) {
         startAction();
       }
     };
@@ -110,7 +111,7 @@ public class IndexingService extends RecursiveAction {
   private void startAction(){
     isStarted.set(true);
     if(isStarted.get()){
-      startIndexing();
+      startIndex();
     }
     if(isStarted.get()) {
       setIndexedStatus();
@@ -126,9 +127,9 @@ public class IndexingService extends RecursiveAction {
   }
 
   private void setIndexedStatus(){
-    for(int i = 0;siteNames.size()>i;i++){
+    for(int i = 0; siteNames.size() > i; i++){
       ModelSite site = sitesRepository.findByName(siteNames.get(i));
-      if(site.getStatus()!=Status.FAILED){
+      if(site.getStatus() != Status.FAILED){
         site.setStatus(Status.INDEXED);
         sitesRepository.save(site);
       }
@@ -136,10 +137,10 @@ public class IndexingService extends RecursiveAction {
   }
 
   private void killThreads(){
-    for (IndexingService task : subTasks) {
+    for (IndexService task : subTasks) {
       task.cancel(true);
     }
-    for (IndexingService task : subFirstTasks) {
+    for (IndexService task : subFirstTasks) {
       task.cancel(true);
     }
   }
@@ -153,7 +154,7 @@ public class IndexingService extends RecursiveAction {
     }
   }
 
-  private void startIndexing(){
+  private void startIndex(){
     log.info("Indexing is started");
     if(isFirstRun){
       performFirstRun();
@@ -161,7 +162,7 @@ public class IndexingService extends RecursiveAction {
   }
 
   private void performFirstRun(){
-    for(int i = 0; i< initialConSites.getSites().size(); i++){
+    for(int i = 0; i < initialConSites.getSites().size(); i++){
       firstRunPerSite(initialConSites.getSites().get(i));
     }
     joinSubFirstTasks();
@@ -178,9 +179,9 @@ public class IndexingService extends RecursiveAction {
       log.trace(e.getMessage());
     }
     uncheckedCheckerLinks = new ArrayList<>();
-    arguments = new ArrayList<>(List.of(site.getUrl(), "",String.valueOf(0), site.getName(), "", String.valueOf(true), String.valueOf(setLevel(url)), connectionProperties.getUserAgent(), connectionProperties.getReferrer(), connectionProperties.getTimeout()));
+    arguments = new ArrayList<>(List.of(site.getUrl(), "", String.valueOf(0), site.getName(), "", String.valueOf(true), String.valueOf(setLevel(url)), connectionProperties.getUserAgent(), connectionProperties.getReferrer(), connectionProperties.getTimeout()));
     repArguments = new ArrayList<>(List.of(sitesRepository, pagesRepository, indexRepository, lemmaRepository));
-    IndexingService task = new IndexingService(arguments, repArguments, pageIndexingService, initialConSites, connectionProperties);
+    IndexService task = new IndexService(arguments, repArguments, pageIndexService, initialConSites, connectionProperties);
     if(isIndexing.get()) {
       subFirstTasks.add(task);
     }
@@ -199,7 +200,7 @@ public class IndexingService extends RecursiveAction {
   }
 
   private void joinSubFirstTasks(){
-    for (IndexingService task : subFirstTasks) {
+    for (IndexService task : subFirstTasks) {
       if(isIndexing.get()){
         task.join();
       }
@@ -229,10 +230,10 @@ public class IndexingService extends RecursiveAction {
 
   private ArrayList<Document> checkLink(String url){
     ArrayList<Document> AvailableLinks = new ArrayList<>();
-    if (pagesRepository.findByPath(url)==null) {
+    if (pagesRepository.findByPath(url) == null) {
       try {
         Connection.Response responseLocal = Connect(url);
-        if(responseLocal!=null){
+        if(responseLocal != null){
           doc2 = responseLocal.parse();
           AvailableLinks.add(doc2);
         }
@@ -278,7 +279,7 @@ public class IndexingService extends RecursiveAction {
       modelSite.setUrl(url);
       modelSite.setName(name);
       modelSite.setStatusTime(LocalDateTime.now());
-      if(response!=null) {
+      if(response != null) {
         modelSite.setLastError("");
         modelSite.setStatus(Status.INDEXING);
       } else{
@@ -311,11 +312,11 @@ public class IndexingService extends RecursiveAction {
   private void startPageIndexing(ModelPage modelPage){
     if (!String.valueOf(response.statusCode()).matches("[4|5].*") && !modelPage.getContent().isBlank()) {
       List<CrudRepository> repArguments = new ArrayList<>(List.of(sitesRepository, pagesRepository, indexRepository, lemmaRepository));
-      PageIndexingService pageIndexingService2 = new PageIndexingService(repArguments, connectionProperties, initialConSites);
+      PageIndexService pageIndexService2 = new PageIndexService(repArguments, connectionProperties, initialConSites);
       if (isFirstRun) {
-        pageIndexingService2.startPageIndexing(url + "/");
+        pageIndexService2.startPageIndex(url + "/");
       } else {
-        pageIndexingService2.startPageIndexing(url);
+        pageIndexService2.startPageIndex(url);
       }
     }
   }
@@ -378,7 +379,7 @@ public class IndexingService extends RecursiveAction {
     {
       arguments = new ArrayList<>(List.of(link, baseUrl, String.valueOf(siteId), "", "", String.valueOf(false), String.valueOf(setLevel(url)), userAgent, referrer, timeout));
       repArguments = new ArrayList<>(List.of(sitesRepository, pagesRepository, indexRepository, lemmaRepository));
-      IndexingService task = new IndexingService(arguments, repArguments, pageIndexingService, initialConSites, connectionProperties);
+      IndexService task = new IndexService(arguments, repArguments, pageIndexService, initialConSites, connectionProperties);
       if(isIndexing.get()) {
         subTasks.add(task);
       }
@@ -390,7 +391,7 @@ public class IndexingService extends RecursiveAction {
   }
 
   private void joinTasks(){
-    for (IndexingService task : subTasks) {
+    for (IndexService task : subTasks) {
       if(isIndexing.get()){
         task.join();
       }
@@ -400,7 +401,7 @@ public class IndexingService extends RecursiveAction {
   public RequestResponse stopIndexing(){
     if(isIndexing.get()){
       List<ModelSite> sitesToFail = sitesRepository.findAllByStatus(String.valueOf(Status.INDEXING));
-      for(int i = 0;sitesToFail.size()>i;i++){
+      for(int i = 0; sitesToFail.size() > i; i++){
         try {
           ModelSite modelSite = sitesToFail.get(i);
           modelSite.setStatus(Status.FAILED);

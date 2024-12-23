@@ -32,7 +32,7 @@ import searchengine.repositories.SitesRepository;
 @Slf4j
 @RequiredArgsConstructor(onConstructor_ = @Autowired)
 @Service
-public class PageIndexingService {
+public class PageIndexService {
   private final PagesRepository pagesRepository;
   private final SitesRepository sitesRepository;
   private final ConnectionProperties connectionProperties;
@@ -52,7 +52,7 @@ public class PageIndexingService {
   private HashMap<String, Integer> wordsCounter;
   private static final Object mutex = new Object();
 
-  public PageIndexingService(List<CrudRepository> repArguments, ConnectionProperties connectionProperties, SitesList initialConSites){
+  public PageIndexService(List<CrudRepository> repArguments, ConnectionProperties connectionProperties, SitesList initialConSites){
     this.sitesRepository = (SitesRepository) repArguments.get(0);
     this.pagesRepository = (PagesRepository) repArguments.get(1);
     this.indexRepository = (IndexRepository) repArguments.get(2);
@@ -126,17 +126,17 @@ public class PageIndexingService {
     return pageAddress;
   }
 
-  private HashMap<String, Integer> sentenceToWords(String sentence){
+  private HashMap<String, Integer> processSentenceToWords(String sentence){
     wordsCounter = new HashMap<>();
     String[] words = sentence.split("\\.\\s+|\\,*\\s+|\\.\\s*|-+|'|:|\"|\\?|«|»");
     if(words.length<6){
-      return sentenceToWordsSingleThread(words, 0, words.length);
+      return processSentenceToWordsInSingleThread(words, 0, words.length);
     }else{
-      return sentenceToWordsMultiThread(words);
+      return processSentenceToWordsInMultiThread(words);
     }
   }
 
-  private HashMap<String, Integer> sentenceToWordsSingleThread(String[] words, int start, int finish) {
+  private HashMap<String, Integer> processSentenceToWordsInSingleThread(String[] words, int start, int finish) {
     for (; start < finish; start++) {
       if (WordProcessor.isNotServiceWord(words[start])) {
         saveDefaultForm(words[start]);
@@ -158,13 +158,13 @@ public class PageIndexingService {
       }
     }
 
-  private HashMap<String, Integer> sentenceToWordsMultiThread(String[] words){
+  private HashMap<String, Integer> processSentenceToWordsInMultiThread(String[] words){
     Thread PageIndexingThread = new Thread(
-        () -> sentenceToWordsSingleThread(words, 0, words.length/3));
+        () -> processSentenceToWordsInSingleThread(words, 0, words.length/3));
     Thread PageIndexingThread2 = new Thread(
-        () -> sentenceToWordsSingleThread(words, words.length/3, words.length/3*2));
+        () -> processSentenceToWordsInSingleThread(words, words.length/3, words.length/3*2));
     Thread PageIndexingThread3 = new Thread(
-        () -> sentenceToWordsSingleThread(words, words.length/3*2, words.length));
+        () -> processSentenceToWordsInSingleThread(words, words.length/3*2, words.length));
     subTasks.add(PageIndexingThread);
     PageIndexingThread.start();
     subTasks.add(PageIndexingThread2);
@@ -269,7 +269,7 @@ public class PageIndexingService {
     return new ArrayList<>();
   }
   
-  public RequestResponse startPageIndexing(String pageAddress) {
+  public RequestResponse startPageIndex(String pageAddress) {
     if (!isSitePresentInConfiguration(pageAddress)) {
       return new RequestResponceFailed(false, "Данная страница находится за пределами сайтов, указанных в конфигурационном файле");
     }
@@ -285,7 +285,7 @@ public class PageIndexingService {
       modelPage = pagesRepository.findByUrlAndId(getExactPageAddress(pageAddress), siteId);
       doc2 = Jsoup.parse(modelPage.getContent());
     }
-    finalList = sentenceToWords(doc2.body().text());
+    finalList = processSentenceToWords(doc2.body().text());
     findAndDeleteOldEntries(pageAddress);
     saveData(response, pageAddress);
     if (!finalList.isEmpty()) {

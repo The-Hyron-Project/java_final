@@ -8,8 +8,8 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import searchengine.dto.statistics.RequestResponse;
 import searchengine.dto.statistics.StatisticsResponse;
-import searchengine.services.IndexingService;
-import searchengine.services.PageIndexingService;
+import searchengine.services.IndexService;
+import searchengine.services.PageIndexService;
 import searchengine.services.SearchService;
 import searchengine.services.StatisticsService;
 
@@ -18,15 +18,15 @@ import searchengine.services.StatisticsService;
 public class ApiController {
 
     private final StatisticsService statisticsService;
-    private final IndexingService indexingService;
-    private final PageIndexingService pageIndexingService;
+    private final IndexService indexService;
+    private final PageIndexService pageIndexService;
     private final SearchService searchService;
 
-    public ApiController(StatisticsService statisticsService, IndexingService indexingService,
-        PageIndexingService pageIndexingService, SearchService searchService) {
+    public ApiController(StatisticsService statisticsService, IndexService indexService,
+        PageIndexService pageIndexService, SearchService searchService) {
         this.statisticsService = statisticsService;
-        this.indexingService = indexingService;
-        this.pageIndexingService = pageIndexingService;
+        this.indexService = indexService;
+        this.pageIndexService = pageIndexService;
         this.searchService = searchService;
     }
 
@@ -37,18 +37,18 @@ public class ApiController {
 
     @GetMapping("/startIndexing")
     public ResponseEntity<RequestResponse>  startIndexing() {
-        return ResponseEntity.ok(indexingService.getIndexResult());
+        return ResponseEntity.ok(indexService.getIndexResult());
 
     }
 
     @GetMapping("/stopIndexing")
     public ResponseEntity<RequestResponse> stopIndexing() {
-        return ResponseEntity.ok(indexingService.stopIndexing());
+        return ResponseEntity.ok(indexService.stopIndexing());
     }
 
     @PostMapping("/indexPage")
     public ResponseEntity<RequestResponse> indexPage(@RequestParam String url)  {
-        return ResponseEntity.ok(pageIndexingService.startPageIndexing(url));
+        return ResponseEntity.ok(pageIndexService.startPageIndex(url));
     }
 
     @GetMapping("/search")
