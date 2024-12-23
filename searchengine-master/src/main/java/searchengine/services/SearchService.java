@@ -190,13 +190,6 @@ public class SearchService {
     return pagesIdsToReturn;
   }
 
-  private int calculateOffset(int offset) {
-    if (offset >= pageIdsWithRelRel.size()) {
-      offset = 0;
-    }
-    return offset;
-  }
-
   private Optional calculateLowestFrequency(HashMap<String, Integer> lemmasWithMaxFrequency) {
     if (!lemmasWithMaxFrequency.isEmpty()) {
       Optional localCurrentLowestFrequencyValue = lemmasWithMaxFrequency.entrySet()
@@ -251,7 +244,7 @@ public class SearchService {
     pageIdsWithMaxRel = new HashMap<>(collectIdsAndRankSum(foundPageIds));
     pageIdsWithRelRel = new HashMap<>(
         calculatePageIdsWithRelativeRelevance(pageIdsWithMaxRel, calculateMaximumRelevance(pageIdsWithMaxRel)));
-    data = new ArrayList<>(finishSearch(calculateOffset(offset)));
+    data = new ArrayList<>(finishSearch(offset, limit));
     return new SearchResponseSucceeded(true, pageIdsWithRelRel.size(), data);
   }
 
@@ -271,10 +264,10 @@ public class SearchService {
     return dataToReturn;
   }
   
-  private ArrayList<SearchResponseItem> finishSearch(int offset){
+  private ArrayList<SearchResponseItem> finishSearch(int offset, int limit){
     Map<Integer, Double> sortedMap = sortMapByValueDescending(pageIdsWithRelRel);
     List<ModelPage> allPagesList = pagesRepository.findAllPagesByPageIds(foundPageIds);
-    HashMap<Integer, Double> localPageIdsWithRelRel = sortedMap.entrySet().stream().skip(offset).limit(10).collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue, (e1, e2) -> e1, LinkedHashMap::new));
+    HashMap<Integer, Double> localPageIdsWithRelRel = sortedMap.entrySet().stream().skip(offset).limit(limit).collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue, (e1, e2) -> e1, LinkedHashMap::new));
     ArrayList<SearchResponseItem> dataLocal = new ArrayList<>();
       while(!localPageIdsWithRelRel.isEmpty()){
         Optional<Entry<Integer, Double>> localCurrentLowestRelRelPage = localPageIdsWithRelRel.entrySet().stream().min((Entry<Integer, Double> e1, Entry<Integer, Double> e2) -> e1.getValue().compareTo(e2.getValue()));
