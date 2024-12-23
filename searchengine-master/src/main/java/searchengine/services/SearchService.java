@@ -174,7 +174,7 @@ public class SearchService {
   private HashMap<Integer, Double> collectIdsAndRankSum(List<Integer> pageIdsNoRelLocal) {
     HashMap<Integer, Double> mapToReturn = new HashMap<>();
       List<String> localListMap = indexRepository.findSumRanksByPageIdList(pageIdsNoRelLocal, lemmaIds);
-      for(int i = 0; localListMap.size()>i;i++) {
+      for(int i = 0; localListMap.size() > i; i++) {
         String[] dataToInsert = localListMap.get(i).split(",");
         mapToReturn.put(Integer.parseInt(dataToInsert[0]), Double.parseDouble(dataToInsert[1]));
       }
@@ -311,7 +311,7 @@ public class SearchService {
       Optional<Entry<String, Integer>> localCurrentLowestFrequencyValue = calculateLowestFrequency(lemmasWithMaxFrequency);
       lemmasWithMaxFrequency.entrySet().removeIf(entry -> entry == localCurrentLowestFrequencyValue.get());
       ArrayList<Integer> finalPageIds = fillInitialPages(site, localCurrentLowestFrequencyValue);
-      for(int z = 0;foundPageIds.size()> z;z++){
+      for(int z = 0;foundPageIds.size()> z; z++){
         deleteUnneededPages(finalPageIds, z);
       }
     }
