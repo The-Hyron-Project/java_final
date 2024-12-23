@@ -91,7 +91,7 @@ public class WordProcessor {
 
   private static void prepareToWork(){
     indexes = new ArrayList<>();
-    isSnippetFound=false;
+    isSnippetFound = false;
     isDefaultStringGot = false;
     defaultString = "";
     finalLemma = "";
@@ -102,14 +102,14 @@ public class WordProcessor {
     prepareToWork();
     String[] words = text.split("(?<=\\.\\s)+|(?=\\.\\s)+|(?<=\\,)*(?<=\\s)+|(?=\\,)*(?=\\s)+|(?<=-)+|(?=-)+|(?<=')|(?=')|(?<=:)|(?=:)|(?<=\")|(?=\")|(?<=\\?)|(?=\\?)|(?<=«)|(?=«)|(?<=»)|(?=»)|(?<=,)|(?=,)");
     for (int i = 0; i < words.length; i++){
-      if(isSnippetFound==true){
-        indexes  = new ArrayList<>();
+      if(isSnippetFound == true){
+        indexes = new ArrayList<>();
         break;
       }
       hasRightNeighbourCount = 0;
       finalLemma = iterateThroughSeparatedWords(words, i);
     }
-    if(isSnippetFound==false && isDefaultStringGot==true){
+    if(isSnippetFound == false && isDefaultStringGot == true){
       return defaultString;
     }
     return finalLemma;
@@ -134,9 +134,9 @@ public class WordProcessor {
 
   private static String processRussianWord(String[] words, int wordIndex){
     boolean hasRightNeighbour = hasRightNeighbour(wordIndex, words, 0);
-    if (isSnippetFound == false && hasRightNeighbour==false && isDefaultStringGot == false) {
+    if (isSnippetFound == false && hasRightNeighbour == false && isDefaultStringGot == false) {
       createSentenceNoNeighbour(words, wordIndex);
-    } else if (isSnippetFound == false && hasRightNeighbour==true) {
+    } else if (isSnippetFound == false && hasRightNeighbour == true) {
       return createSentenceWithNeighbour(words, wordIndex);
     }
     return "";
@@ -145,9 +145,9 @@ public class WordProcessor {
   private static String processEnglishWord(String[] words, int wordIndex){
     indexes.add(wordIndex);
     boolean hasRightNeighbour = hasRightNeighbour(wordIndex, words, 0);
-    if (isSnippetFound == false && hasRightNeighbour==false && isDefaultStringGot == false) {
+    if (isSnippetFound == false && hasRightNeighbour == false && isDefaultStringGot == false) {
       createSentenceNoNeighbour(words, wordIndex);
-    } else if (isSnippetFound == false && hasRightNeighbour==true) {
+    } else if (isSnippetFound == false && hasRightNeighbour == true) {
       return createSentenceWithNeighbour(words, wordIndex);
     }
     return "";
@@ -155,10 +155,10 @@ public class WordProcessor {
 
   private static String processDigit(String[] words, int wordIndex){
     boolean hasRightNeighbour = hasRightNeighbour(wordIndex, words, 0);
-    if (isSnippetFound == false && hasRightNeighbour==false && isDefaultStringGot == false) {
+    if (isSnippetFound == false && hasRightNeighbour == false && isDefaultStringGot == false) {
       createSentenceNoNeighbour(words, wordIndex);
     }
-    else if (isSnippetFound == false && hasRightNeighbour==true) {
+    else if (isSnippetFound == false && hasRightNeighbour == true) {
       return createSentenceWithNeighbour(words, wordIndex);
     }
     return "";
@@ -255,13 +255,13 @@ public class WordProcessor {
   private static String createSentence(String[] words, int wordCounter ){
     StringBuilder stringBuilder = new StringBuilder();
     stringBuilder.append("...");
-    for(int z = 15;1<=z;z--){
-      if(!(wordCounter-z<0)) {
+    for(int z = 15; 1 <= z; z--){
+      if(!(wordCounter-z < 0)) {
         stringBuilder.append(howToInsertByLemma(wordCounter - z, words));
       }
     }
     stringBuilder.append("<b>").append(words[wordCounter]).append("</b>");
-    for(int z = 1;15>=z;z++) {
+    for(int z = 1; 15 >= z; z++) {
       if (!(wordCounter + z > words.length-1)) {
         stringBuilder.append(howToInsertByLemma(wordCounter + z, words));
       }
@@ -275,17 +275,17 @@ public class WordProcessor {
     int max = wordIds.stream().mapToInt(v -> v).max().getAsInt();
     StringBuilder stringBuilder = new StringBuilder();
     stringBuilder.append("...");
-    for(int z = 14;0<z;z--){
-      if(!((min-z) <0)){
-        stringBuilder.append(howToInsertById(min-z, words, wordIds));
+    for(int z = 14; 0 < z; z--){
+      if(!((min - z) < 0)){
+        stringBuilder.append(howToInsertById(min - z, words, wordIds));
       }
     }
-    for(int z = min;z!=(max+1);z++){
+    for(int z = min; z != (max + 1); z++){
       stringBuilder.append(howToInsertById(z, words, wordIds));
     }
-    for(int z = 1;14>=z;z++) {
+    for(int z = 1; 14 >= z; z++) {
       if (!(max+z > words.length-1)){
-        stringBuilder.append(howToInsertById(max+z, words, wordIds));
+        stringBuilder.append(howToInsertById(max + z, words, wordIds));
       }else{
         break;
       }
