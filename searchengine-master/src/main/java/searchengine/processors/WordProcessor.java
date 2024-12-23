@@ -2,7 +2,6 @@ package searchengine.processors;
 
 import java.io.IOException;
 import java.util.ArrayList;
-import java.util.List;
 import org.apache.lucene.morphology.LuceneMorphology;
 import org.apache.lucene.morphology.english.EnglishLuceneMorphology;
 import org.apache.lucene.morphology.russian.RussianLuceneMorphology;
@@ -13,12 +12,12 @@ public class WordProcessor {
   static LuceneMorphology luceneMorphRu;
   static LuceneMorphology luceneMorphEng;
   private static ArrayList <String> lemmas;
-  private static ArrayList<Integer> indexesToIgnore;
   private static ArrayList<Integer> indexes;
   private static boolean isSnippetFound = false;
   private static boolean isDefaultStringGot = false;
   private static String defaultString;
   private static int hasRightNeighbourCount;
+  private static String finalLemma;
 
   static {
     try {
@@ -90,162 +89,162 @@ public class WordProcessor {
       return luceneMorphEng.getNormalForms(englishWordToGetForm.toLowerCase()).get(0).toLowerCase();
   }
 
-  public static String arrayToSentence(ArrayList<String> lemmasReceived, String text){
-    lemmas = lemmasReceived;
+  private static void prepareToWork(){
     indexes = new ArrayList<>();
-    indexesToIgnore = new ArrayList<>();
-    String[] words = text.split("(?<=\\.\\s)+|(?=\\.\\s)+|(?<=\\,)*(?<=\\s)+|(?=\\,)*(?=\\s)+|(?<=-)+|(?=-)+|(?<=')|(?=')|(?<=:)|(?=:)|(?<=\")|(?=\")|(?<=\\?)|(?=\\?)|(?<=«)|(?=«)|(?<=»)|(?=»)|(?<=,)|(?=,)");
     isSnippetFound=false;
     isDefaultStringGot = false;
     defaultString = "";
-    ArrayList<String> snippetToReturn = new ArrayList<>();
+    finalLemma = "";
+  }
+
+  public static String arrayToSentence(ArrayList<String> lemmasReceived, String text){
+    lemmas = lemmasReceived;
+    prepareToWork();
+    String[] words = text.split("(?<=\\.\\s)+|(?=\\.\\s)+|(?<=\\,)*(?<=\\s)+|(?=\\,)*(?=\\s)+|(?<=-)+|(?=-)+|(?<=')|(?=')|(?<=:)|(?=:)|(?<=\")|(?=\")|(?<=\\?)|(?=\\?)|(?<=«)|(?=«)|(?<=»)|(?=»)|(?<=,)|(?=,)");
     for (int i = 0; i < words.length; i++){
       if(isSnippetFound==true){
         indexes  = new ArrayList<>();
         break;
       }
-      if(!indexesToIgnore.contains(i)){
-        hasRightNeighbourCount = 0;
-        snippetToReturn.addAll(iterateThroughInitiallySeparatedWords(words, i));
-      }
+      hasRightNeighbourCount = 0;
+      finalLemma = iterateThroughSeparatedWords(words, i);
     }
-    StringBuilder stringBuilder = new StringBuilder();
     if(isSnippetFound==false && isDefaultStringGot==true){
-      snippetToReturn.add(defaultString);
+      return defaultString;
     }
-    for(int u=0;snippetToReturn.size()>u;u++){
-      stringBuilder.append(snippetToReturn.get(u));
-    }
-    return stringBuilder.toString();
+    return finalLemma;
   }
 
-  private static ArrayList<String> iterateThroughInitiallySeparatedWords(String[] words, int i){
-    ArrayList<String> localsSnippetToReturn = new ArrayList<>();
+  private static String iterateThroughSeparatedWords(String[] words, int wordIndex){
+    String localsSnippetToReturn = "";
     hasRightNeighbourCount = 0;
-    if(words[i].matches("\\D*") && !words[i].isBlank()) {
-      if (words[i].matches("[а-яА-ЯЁё]+") && !words[i].isBlank()) {
-        if (lemmas.contains(getDefaultRussianForm(words[i]))) {
-          boolean hasRightNeighbour = hasRightNeighbour(i, words, 0);
-          if (isSnippetFound == false && !hasRightNeighbour) {
-            if(isDefaultStringGot == false && isSnippetFound == false){
-              defaultString = createSentence(words, i);
-              isDefaultStringGot = true;
-            }
-          } else if (isSnippetFound == false &&  hasRightNeighbour==true) {
-            indexes.addAll(getRightNeighbour(i, 0, words));
-            indexes.add(i);
-            indexesToIgnore.addAll(indexes);
-            localsSnippetToReturn.add(createGiantSentence(words, indexes));
-            isSnippetFound = true;
-          }
-        }
-      } else if (words[i].matches("[a-zA-Z]+") && !words[i].isBlank()) {
-        if (lemmas.contains(getDefaultEnglishForm(words[i]))) {
-          indexes.add(i);
-          boolean hasRightNeighbour = hasRightNeighbour(i, words, 0);
-          if (!hasRightNeighbour) {
-            if(isDefaultStringGot == false && isSnippetFound == false){
-              defaultString = createSentence(words, i);
-              isDefaultStringGot = true;
-            }
-          } else if (isSnippetFound == false && hasRightNeighbour) {
-            indexes.addAll(getRightNeighbour(i, 0, words));
-            indexesToIgnore.addAll(indexes);
-            localsSnippetToReturn.add(createGiantSentence(words, indexes));
-            isSnippetFound = true;
-          }
-        }
+    if (words[wordIndex].matches("[а-яА-ЯЁё]+") && !words[wordIndex].isBlank()) {
+      if (lemmas.contains(getDefaultRussianForm(words[wordIndex].replace('Ё','Е').replace('ё','е')))) {
+        return processRussianWord(words, wordIndex);
       }
-    }else if(!words[i].isBlank() && words[i].matches("[0-9]+") && lemmas.contains(words[i])) {
-      boolean hasRightNeighbour = hasRightNeighbour(i, words, 0);
-      if (!hasRightNeighbour) {
-        if(isDefaultStringGot == false && isSnippetFound == false){
-          defaultString = createSentence(words, i);
-          isDefaultStringGot = true;
-        }
+    } else if (words[wordIndex].matches("[a-zA-Z]+") && !words[wordIndex].isBlank()) {
+      if (lemmas.contains(getDefaultEnglishForm(words[wordIndex]))) {
+        return processEnglishWord(words, wordIndex);
       }
-      else if (isSnippetFound == false &&  hasRightNeighbour) {
-        indexes.addAll(getRightNeighbour(i, 0, words));
-        indexes.add(i);
-        indexesToIgnore.addAll(indexes);
-        localsSnippetToReturn.add(createGiantSentence(words, indexes));
-        isSnippetFound = true;
-      }
+    }else if(!words[wordIndex].isBlank() && words[wordIndex].matches("[0-9]+") && lemmas.contains(words[wordIndex])) {
+      return processDigit(words, wordIndex);
     }
     return localsSnippetToReturn;
   }
 
-  private static boolean hasRightNeighbour(int i, String[] words, int counter) {
+  private static String processRussianWord(String[] words, int wordIndex){
+    boolean hasRightNeighbour = hasRightNeighbour(wordIndex, words, 0);
+    if (isSnippetFound == false && hasRightNeighbour==false && isDefaultStringGot == false) {
+      createSentenceNoNeighbour(words, wordIndex);
+    } else if (isSnippetFound == false && hasRightNeighbour==true) {
+      return createSentenceWithNeighbour(words, wordIndex);
+    }
+    return "";
+  }
+
+  private static String processEnglishWord(String[] words, int wordIndex){
+    indexes.add(wordIndex);
+    boolean hasRightNeighbour = hasRightNeighbour(wordIndex, words, 0);
+    if (isSnippetFound == false && hasRightNeighbour==false && isDefaultStringGot == false) {
+      createSentenceNoNeighbour(words, wordIndex);
+    } else if (isSnippetFound == false && hasRightNeighbour==true) {
+      return createSentenceWithNeighbour(words, wordIndex);
+    }
+    return "";
+  }
+
+  private static String processDigit(String[] words, int wordIndex){
+    boolean hasRightNeighbour = hasRightNeighbour(wordIndex, words, 0);
+    if (isSnippetFound == false && hasRightNeighbour==false && isDefaultStringGot == false) {
+      createSentenceNoNeighbour(words, wordIndex);
+    }
+    else if (isSnippetFound == false && hasRightNeighbour==true) {
+      return createSentenceWithNeighbour(words, wordIndex);
+    }
+    return "";
+  }
+
+  private static void createSentenceNoNeighbour(String[] words, int wordIndex){
+    defaultString = createSentence(words, wordIndex);
+    isDefaultStringGot = true;
+  }
+
+  private static String createSentenceWithNeighbour(String[] words, int wordIndex){
+    indexes.addAll(getRightNeighbour(wordIndex, 0, words));
+    indexes.add(wordIndex);
+    isSnippetFound = true;
+    return createGiantSentence(words, indexes);
+  }
+
+  private static boolean hasRightNeighbour(int wordCounter, String[] words, int counter) {
     counter++;
     Boolean result = false;
-      if (i+counter < words.length && words[i+counter] != null) {
-        while (i+counter < words.length
-            && words[i+counter] != null
-            &&
-            !(words[i+counter].matches("[а-яА-ЯЁё]+")
-                || words[i+counter].matches("[a-zA-Z]+")
-                || words[i+counter].matches("[0-9]+"))){
+      if (wordCounter+counter < words.length && words[wordCounter+counter] != null) {
+        while (wordCounter+counter < words.length && words[wordCounter+counter] != null && !(((words[wordCounter+counter].matches("[а-яА-ЯЁё]+") || words[wordCounter+counter].matches("[a-zA-Z]+")) && isNotServiceWord(words[wordCounter+counter])) || words[wordCounter+counter].matches("[0-9]+"))){
           counter++;
         }
-        if (words[i+counter].matches("\\D*") && !words[i].isBlank()) {
-            if (words[i+counter].matches("[а-яА-ЯЁё]+") && !words[i+counter].isBlank()
-                && isNotRussianServiceWord(getDefaultRussianForm(words[i+counter]))
-                && lemmas.contains(getDefaultRussianForm(words[i+counter]))) {
-              hasRightNeighbourCount++;
-              if (hasRightNeighbourCount < lemmas.size()-1) {
-                return hasRightNeighbour(i, words, counter);
-              } else if (hasRightNeighbourCount == lemmas.size()-1) {
-                result = true;
-              } else {
-                result = false;
-              }
-            } else if (words[i+counter].matches("[a-zA-Z]+") && !words[i+counter].isBlank()
-                && isNotEnglishServiceWord(getDefaultEnglishForm(words[i+counter]))
-                && lemmas.contains(getDefaultEnglishForm(words[i+counter]))) {
-              hasRightNeighbourCount++;
-              if (hasRightNeighbourCount < lemmas.size()-1) {
-
-                return hasRightNeighbour(i, words, counter);
-              } else if (hasRightNeighbourCount == lemmas.size()-1) {
-                result = true;
-              } else {
-                result = false;
-              }
-          }
-        } else if (!words[i+counter].isBlank() && words[i+counter].matches("[0-9]+") && lemmas.contains(words[i+counter])) {
-          hasRightNeighbourCount++;
-          if (hasRightNeighbourCount < lemmas.size()-1) {
-            return hasRightNeighbour(i, words, hasRightNeighbourCount);
-          } else if (hasRightNeighbourCount == lemmas.size()-1) {
-            result = true;
-          } else {
-            result = false;
-          }
+        if (words[wordCounter+counter].matches("[а-яА-ЯЁё]+") && !words[wordCounter+counter].isBlank() && lemmas.contains(getDefaultRussianForm(words[wordCounter+counter]))) {
+          return checkRussianNeighbour(wordCounter,words, counter);
+        } else if (words[wordCounter+counter].matches("[a-zA-Z]+") && !words[wordCounter+counter].isBlank() && isNotEnglishServiceWord(getDefaultEnglishForm(words[wordCounter+counter])) && lemmas.contains(getDefaultEnglishForm(words[wordCounter+counter]))) {
+          return checkEnglishNeighbour(wordCounter,words, counter);
+        } else if (!words[wordCounter+counter].isBlank() && words[wordCounter+counter].matches("[0-9]+") && lemmas.contains(words[wordCounter+counter])) {
+          return checkNumericNeighbour(wordCounter,words, counter);
         }
       }
     return result;
   }
 
-  private static ArrayList<Integer> getRightNeighbour(int i, int counter, String[] words) {
+  private static Boolean checkNumericNeighbour(int wordCounter, String[] words, int counter){
+    hasRightNeighbourCount++;
+    if (hasRightNeighbourCount < lemmas.size()-1) {
+      return hasRightNeighbour(wordCounter, words, counter);
+    } else if (hasRightNeighbourCount == lemmas.size()-1) {
+      return true;
+    } else {
+      return false;
+    }
+  }
+
+  private static Boolean checkRussianNeighbour(int wordCounter, String[] words, int counter){
+    hasRightNeighbourCount++;
+    if (hasRightNeighbourCount < lemmas.size()-1) {
+      return hasRightNeighbour(wordCounter, words, counter);
+    } else if (hasRightNeighbourCount == lemmas.size()-1) {
+      return true;
+    } else {
+      return false;
+    }
+  }
+
+  private static Boolean checkEnglishNeighbour(int wordCounter, String[] words, int counter){
+    hasRightNeighbourCount++;
+    if (hasRightNeighbourCount < lemmas.size()-1) {
+      return hasRightNeighbour(wordCounter, words, counter);
+    } else if (hasRightNeighbourCount == lemmas.size()-1) {
+      return true;
+    } else {
+      return false;
+    }
+  }
+
+  private static ArrayList<Integer> getRightNeighbour(int wordCounter, int counter, String[] words) {
     ArrayList<Integer> result = new ArrayList();
     int getRightNeighbourCount = 0;
     counter++;
     while(getRightNeighbourCount<hasRightNeighbourCount){
-      while (!(words[i+counter].matches("[а-яА-ЯЁё]+")
-              || words[i+counter].matches("[a-zA-Z]+")
-              || words[i+counter].matches("[0-9]+"))){
+      while (!(((words[wordCounter+counter].matches("[а-яА-ЯЁё]+") || words[wordCounter+counter].matches("[a-zA-Z]+")) && isNotServiceWord(words[wordCounter+counter])) || words[wordCounter+counter].matches("[0-9]+"))){
         counter++;
       }
-      if (words[i+counter].matches("[а-яА-ЯЁё]+") && lemmas.contains(getDefaultRussianForm(words[i+counter]))) {
-        result.add(i+counter);
+      if (words[wordCounter+counter].matches("[а-яА-ЯЁё]+") && lemmas.contains(getDefaultRussianForm(words[wordCounter+counter]))) {
+        result.add(wordCounter+counter);
         getRightNeighbourCount++;
         counter++;
-      } else if (words[i+counter].matches("[a-zA-Z]+") && lemmas.contains(getDefaultRussianForm(words[i+counter]))) {
-        result.add(i+counter);
+      } else if (words[wordCounter+counter].matches("[a-zA-Z]+") && lemmas.contains(getDefaultRussianForm(words[wordCounter+counter]))) {
+        result.add(wordCounter+counter);
         getRightNeighbourCount++;
         counter++;
-      } else if (words[i+counter].matches("[0-9]+") && lemmas.contains(words[i+counter])) {
-        result.add(i+counter);
+      } else if (words[wordCounter+counter].matches("[0-9]+") && lemmas.contains(words[wordCounter+counter])) {
+        result.add(wordCounter+counter);
         getRightNeighbourCount++;
         counter++;
       }
@@ -253,56 +252,18 @@ public class WordProcessor {
     return result;
   }
 
-  private static String createSentence(String[] words, int i ){
+  private static String createSentence(String[] words, int wordCounter ){
     StringBuilder stringBuilder = new StringBuilder();
     stringBuilder.append("...");
-    Boolean isInserted = false;
     for(int z = 15;1<=z;z--){
-      if(!(i-z<0)) {
-        isInserted = false;
-          if ((words[i - z].matches("[а-яА-ЯЁё]+") && lemmas.contains(getDefaultRussianForm(words[i - z])))
-              ||
-              (words[i - z].matches("[a-zA-Z]+") && lemmas.contains(getDefaultEnglishForm(words[i - z])))
-              ||
-              (words[i - z].matches("[0-9]+") && lemmas.contains(words[i - z])))
-          {
-            stringBuilder.append("<b>").append(words[i - z]).append("</b>");
-            isInserted = true;
-//          }
-        }
-        if(isInserted==false){
-          stringBuilder.append(words[i - z]);
-        }
-//        stringBuilder.append(" ");
-      }else {
-
-        }
+      if(!(wordCounter-z<0)) {
+        stringBuilder.append(howToInsertByLemma(wordCounter - z, words));
       }
-    stringBuilder.append("<b>"+words[i]+"</b>");
+    }
+    stringBuilder.append("<b>").append(words[wordCounter]).append("</b>");
     for(int z = 1;15>=z;z++) {
-      if (!(i + z > words.length-1)) {
-        isInserted = false;
-//        stringBuilder.append(" ");
-        if(words[i + z].matches("\\D*") && !words[i].isBlank()) {
-//          String[] words2 = words[i + z].split("\\.\\s+|\\,\\s+|\\.\\s*|-+|'|:|\"|\\?|«|»|,");
-//        for (int y = 0; y < words2.length; y++) {
-          if ((words[i + z].matches("[а-яА-ЯЁё]+") && lemmas.contains(getDefaultRussianForm(words[i + z])))
-              ||
-              (words[i + z].matches("[a-zA-Z]+") && lemmas.contains(getDefaultEnglishForm(words[i + z])))
-              ||
-              ((words[i + z].matches("[0-9]+") && lemmas.contains((words[i + z])))))
-          {
-            stringBuilder.append("<b>").append(words[i + z]).append("</b>");
-            isInserted = true;
-          }
-//        }
-        }else if (!words[i + z].isBlank() && words[i + z].matches("[0-9]+") && lemmas.contains(words[i + z])) {
-          stringBuilder.append("<b>").append(words[i + z]).append("</b>");
-          isInserted = true;
-        }
-        if(isInserted==false){
-          stringBuilder.append(words[i + z]);
-        }
+      if (!(wordCounter + z > words.length-1)) {
+        stringBuilder.append(howToInsertByLemma(wordCounter + z, words));
       }
     }
     stringBuilder.append("...");
@@ -310,41 +271,50 @@ public class WordProcessor {
   }
 
   private static String createGiantSentence(String[] words, ArrayList<Integer> wordIds){
-    int min = wordIds.stream().mapToInt(v -> v)
-        .min().getAsInt();
-    int max = wordIds.stream().mapToInt(v -> v)
-        .max().getAsInt();
+    int min = wordIds.stream().mapToInt(v -> v).min().getAsInt();
+    int max = wordIds.stream().mapToInt(v -> v).max().getAsInt();
     StringBuilder stringBuilder = new StringBuilder();
     stringBuilder.append("...");
     for(int z = 14;0<z;z--){
       if(!((min-z) <0)){
-      if(wordIds.contains(min-z)){
-        stringBuilder.append("<b>").append(words[min-z]).append("</b>");
-      }else{
-        stringBuilder.append(words[min-z]);
-      }
+        stringBuilder.append(howToInsertById(min-z, words, wordIds));
       }
     }
     for(int z = min;z!=(max+1);z++){
-      if(wordIds.contains(z)){
-        stringBuilder.append("<b>").append(words[z]).append("</b>");
-      }else{
-        stringBuilder.append(words[z]);
-      }
+      stringBuilder.append(howToInsertById(z, words, wordIds));
     }
-
     for(int z = 1;14>=z;z++) {
-      if (!(max+z > words.length-1)) {
-        if(wordIds.contains(max + z)){
-          stringBuilder.append("<b>").append(words[max + z]).append("</b>");
-        }else{
-          stringBuilder.append(words[max + z]);
-        }
+      if (!(max+z > words.length-1)){
+        stringBuilder.append(howToInsertById(max+z, words, wordIds));
       }else{
         break;
       }
     }
     stringBuilder.append("...");
     return stringBuilder.toString();
+  }
+
+  private static String howToInsertByLemma(int wordIndex, String[] words){
+    if(words[wordIndex].matches("\\D*") && !words[wordIndex].isBlank()) {
+      if ((words[wordIndex].matches("[а-яА-ЯЁё]+") && lemmas.contains(getDefaultRussianForm(words[wordIndex].replace('Ё','Е').replace('ё','е'))))
+          ||
+          (words[wordIndex].matches("[a-zA-Z]+") && lemmas.contains(getDefaultEnglishForm(words[wordIndex])))
+          ||
+          ((words[wordIndex].matches("[0-9]+") && lemmas.contains((words[wordIndex])))))
+      {
+        return "<b>"+words[wordIndex].replace('Ё','Е').replace('ё','е')+"</b>";
+      }
+    }else if (!words[wordIndex].isBlank() && words[wordIndex].matches("[0-9]+") && lemmas.contains(words[wordIndex])) {
+      return words[wordIndex];
+    }
+    return words[wordIndex];
+  }
+
+  private static String howToInsertById(int wordIndex, String[] words, ArrayList<Integer> wordIds){
+    if(wordIds.contains(wordIndex)){
+      return "<b>"+words[wordIndex]+"</b>";
+    }else{
+      return words[wordIndex];
+    }
   }
 }
